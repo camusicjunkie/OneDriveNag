@@ -132,7 +132,7 @@ function Invoke-NagPrompt {
         Test-ODAccountConfigured -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId
     }
     else {
-        (Get-ODHealthState -SyncStatus (Get-ODSyncStatus -ExePath $SyncUtilPath)).State -eq 'Healthy'
+        (Get-ODHealthState -ExePath $SyncUtilPath).State -eq 'Healthy'
     }
 
     if ($signedIn) {
@@ -197,7 +197,7 @@ try {
     }
 
     # --- Account configured and client running: classify its health ---
-    $health = Get-ODHealthState -SyncStatus (Get-ODSyncStatus -ExePath $syncUtilPath)
+    $health = Get-ODHealthState -ExePath $syncUtilPath
     $context['syncState'] = $health.State
     $context['syncDetail'] = $health.Detail
 

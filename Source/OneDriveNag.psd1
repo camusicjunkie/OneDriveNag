@@ -14,7 +14,6 @@
         'Test-ODClientRunning'
         'Wait-ODClient'
         'Start-ODClient'
-        'Get-ODSyncStatus'
         'Get-ODHealthState'
         'Write-ODNagEvent'
         'Show-ODNagDialog'

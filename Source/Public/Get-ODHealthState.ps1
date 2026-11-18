@@ -1,50 +1,67 @@
 function Get-ODHealthState {
     <#
     .SYNOPSIS
-        Classifies ODSyncUtil output as Healthy, NeedsReauth, NotSignedIn, Degraded, or Unknown.
+        Runs ODSyncUtil and classifies the account as Healthy, NeedsReauth, NotSignedIn, Degraded, or Unknown.
     .DESCRIPTION
-        Collects the text of every State/Status/Label property on every sync root and
-        matches it against the patterns. Detail carries that raw text into telemetry so
-        you can confirm in Splunk which values your OneDrive build actually emits, then
-        tighten AuthPattern before you rely on it.
+        Matches the patterns against each sync root's CurrentStateString and Label only, so a
+        service name can't trigger a state. The worst root wins: NeedsReauth, Degraded,
+        Unknown, then Healthy. A non-zero exit is Unknown; exit 0 with no roots is NotSignedIn.
+        Detail carries service name, numeric CurrentState and the text fields per root into
+        telemetry so you can confirm in Splunk which values your OneDrive build emits.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
     param(
-        # Result object from Get-ODSyncStatus
+        # Full path to ODSyncUtil.exe
         [Parameter(Mandatory)]
-        [pscustomobject] $SyncStatus,
+        [string] $ExePath,
 
         # Regex for state/label text that means the sign-in has expired or is missing
-        [string] $AuthPattern = 'sign.?in|signed.?out|auth|credential',
+        [string] $AuthPattern = 'signed.?out|sign.?in (required|needed)|auth|credential',
+
+        # Regex for state/label text that means the client isn't running or reports an unrecognised state
+        [string] $UnknownPattern = 'Unknown \(\d+\)|Start OneDrive',
 
         # Regex for problems worth logging that a sign-in would not fix (no prompt)
         [string] $DegradedPattern = 'error|paused|blocked|full'
     )
 
-    if (-not $SyncStatus.Available) {
-        return [pscustomobject]@{ State = 'Unknown'; Detail = $SyncStatus.Error }
+    $run = Invoke-ODSyncUtil -ExePath $ExePath
+
+    if ($run.ExitCode -ne 0) {
+        return [pscustomobject]@{ State = 'Unknown'; Detail = "ODSyncUtil exit code $($run.ExitCode)" }
     }
 
-    if ($SyncStatus.Roots.Count -eq 0) {
+    $roots = @()
+    if (-not [string]::IsNullOrWhiteSpace($run.Output)) {
+        try {
+            # Parentheses make 5.1 enumerate a JSON array instead of returning it as one object
+            $roots = @(($run.Output | ConvertFrom-Json))
+        }
+        catch {
+            return [pscustomobject]@{ State = 'Unknown'; Detail = "Unparseable ODSyncUtil output: $($_.Exception.Message)" }
+        }
+    }
+
+    if ($roots.Count -eq 0) {
         return [pscustomobject]@{ State = 'NotSignedIn'; Detail = 'No sync roots reported' }
     }
 
-    $stateText = foreach ($root in $SyncStatus.Roots) {
-        foreach ($property in $root.PSObject.Properties) {
-            if ($property.Name -match 'State|Status|Label') { [string]$property.Value }
-        }
-    }
-    $detail = ($stateText -join ' | ')
-    if ($detail.Length -gt 500) { $detail = $detail.Substring(0, 500) }
-
+    $rank = @{ Healthy = 0; Unknown = 1; Degraded = 2; NeedsReauth = 3 }
     $state = 'Healthy'
-    if ($detail -match $AuthPattern) {
-        $state = 'NeedsReauth'
+    $parts = foreach ($root in $roots) {
+        $text = "$($root.CurrentStateString) $($root.Label)"
+        $rootState = if ($text -match $AuthPattern) { 'NeedsReauth' }
+        elseif ($text -match $DegradedPattern) { 'Degraded' }
+        elseif ($text -match $UnknownPattern) { 'Unknown' }
+        else { 'Healthy' }
+        if ($rank[$rootState] -gt $rank[$state]) { $state = $rootState }
+
+        '{0} [{1}] {2} | {3}' -f $root.ServiceName, $root.CurrentState, $root.CurrentStateString, $root.Label
     }
-    elseif ($detail -match $DegradedPattern) {
-        $state = 'Degraded'
-    }
+
+    $detail = $parts -join '; '
+    if ($detail.Length -gt 500) { $detail = $detail.Substring(0, 500) }
 
     return [pscustomobject]@{ State = $state; Detail = $detail }
 }

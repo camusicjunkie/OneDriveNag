@@ -14,9 +14,20 @@ Build-Module -SourcePath ./Source/build.psd1
 
 The output lands in `build/OneDriveNag/<version>/` (gitignored). That folder is what you deploy.
 
+## Test
+
+Tests are [Pester 5](https://pester.dev) and live in `Tests/`, outside `Source/`, so the build leaves them out of its output. Run them from the repo root:
+
+```powershell
+Invoke-Pester -Path ./Tests -Output Detailed
+```
+
+They mock `Invoke-ODSyncUtil`, so they need no OneDrive or `ODSyncUtil.exe`.
+
 | Path | Purpose |
 |---|---|
 | `Source/Public/` | One file per module function. The build joins them into `OneDriveNag.psm1` and exports them all. |
+| `Source/Private/` | Helpers the module uses but does not export, such as `Invoke-ODSyncUtil`. |
 | `Source/OneDriveNag.psd1` | Module manifest. The build stamps the exported function list into the output copy. |
 | `Source/Invoke-OneDriveNag.ps1` | Entry point the scheduled task runs. Checks OneDrive state, shows the prompt, and logs events. |
 | `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. |
@@ -134,7 +145,7 @@ A Simple XML dashboard is in `Splunk/OneDriveNag.xml`. In Splunk, create a new d
 
 ## Pilot checklist
 
-- [ ] **Tune `AuthPattern`.** Run the pilot for a week, then check what `syncDetail` actually says when a token has expired. Don't trust the NeedsReauth match until then. Degraded and Unknown events show where the classifier is guessing.
+- [ ] **Tune `AuthPattern`.** The default is `signed.?out|sign.?in (required|needed)|auth|credential`, matched per root against `CurrentStateString` and `Label` only (a bare "Signed in" label is healthy). `UnknownPattern` (default `Unknown \(\d+\)|Start OneDrive`) catches a closed client. Run the pilot for a week, then check what `syncDetail` actually says when a token has expired. Don't trust the NeedsReauth match until then. Degraded and Unknown events show where the classifier is guessing.
 - [ ] **Check the re-check after re-auth.** Right after a sign-in, ODSyncUtil may still report the old auth state, so the check after the prompt misses it and "Sign in now" restarts OneDrive anyway. If 1006 events are often followed shortly by 1003 for the same user, add a short delay before the check.
 - [ ] **Confirm `Start-ODClient -Restart`.** Check that it brings up the sign-in window for an expired token on your OneDrive build.
 - [ ] **Confirm FullLanguage mode.** Check that your WDAC/AppLocker policy runs the signed scripts in FullLanguage mode. If they drop to Constrained Language, you'll see Shown events with no Acted or Deferred event after them.
