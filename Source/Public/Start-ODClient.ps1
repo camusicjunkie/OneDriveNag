@@ -32,17 +32,14 @@ function Start-ODClient {
         [int] $TimeoutSeconds = 120,
 
         # With -Background: extra seconds after the process appears so the sync engine can register its roots
-        [int] $SettleSeconds = 30,
-
-        # Extra key/value fields to add to the event
-        [hashtable] $Data = @{}
+        [int] $SettleSeconds = 30
     )
 
     if ($Background -and -not $Restart -and (Test-ODClientRunning)) { return $true }
 
     $exe = Get-ODClientPath
     if ($null -eq $exe) {
-        Write-ODNagEvent -Logger $Logger -Event 'ClientNotFound' -Data $Data
+        Write-ODNagEvent -Logger $Logger -Event 'ClientNotFound'
         return $false
     }
 

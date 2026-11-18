@@ -61,7 +61,7 @@ Describe 'Start-ODClient' {
         Mock Test-ODClientRunning { $false }
         Start-ODClient -Background @log | Should -BeFalse
         Start-ODClient -Restart @log | Should -BeFalse
-        Should -Invoke Write-ODNagEvent -Times 2 -Exactly -ParameterFilter { $Event -eq 'ClientNotFound' }
+        Should -Invoke Write-ODNagEvent -Times 2 -Exactly -ParameterFilter { $Event -eq 'ClientNotFound' -and -not $Data }
         Should -Invoke Start-Process -Times 0 -Exactly
     }
 }

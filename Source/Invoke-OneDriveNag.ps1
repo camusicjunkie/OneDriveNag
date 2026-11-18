@@ -109,7 +109,7 @@ function Invoke-NagPrompt {
     # Re-check before acting: the user may have signed in through OneDrive's own window while ours was open
     $recheck = if ($Kind -eq 'FirstLogin') {
         @{ AccountConfigured = [bool](Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId `
-                -Logger $Logger).Configured }
+                -Logger $Logger -SkipDirectoryLookup).Configured }
     }
     else {
         @{ HealthState = (Get-ODHealthState -ExePath $SyncUtilPath).State }
@@ -182,7 +182,8 @@ try {
 
     if ($decision.Prompt) {
         Invoke-NagPrompt -Kind $decision.Prompt -Logger $logger @promptArgs
-    }}
+    }
+}
 finally {
     $mutex.ReleaseMutex()
     $mutex.Dispose()

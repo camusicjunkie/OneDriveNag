@@ -63,5 +63,15 @@ Describe 'Get-ODAccount' {
             $Filter -eq '(&(objectCategory=user)(sAMAccountName=a\2a\28b\29\5cc))'
         } -Times 1 -Exactly
     }
-}
-
+    It 'with -SkipDirectoryLookup does no lookup and logs no 1012 but still reports Configured' {
+        Mock Get-ItemProperty { [pscustomobject]@{ UserEmail = ''; ConfiguredTenantId = '' } }
+        Mock Find-ODDirectoryUser { throw 'must not be called' }
+        $r = Get-ODAccount @common -SkipDirectoryLookup
+        $r.Configured | Should -BeFalse
+        Should -Invoke Find-ODDirectoryUser -Times 0 -Exactly
+        Should -Invoke Write-ODNagEvent -Times 0 -Exactly
+    }
+    It 'with -SkipDirectoryLookup is configured when the key has an email' {
+        Mock Get-ItemProperty { [pscustomobject]@{ UserEmail = 'a@b.com'; ConfiguredTenantId = '' } }
+        (Get-ODAccount @common -SkipDirectoryLookup).Configured | Should -BeTrue
+    }}

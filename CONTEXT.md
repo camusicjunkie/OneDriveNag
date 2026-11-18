@@ -21,7 +21,7 @@ The classification of a configured account's sync status. It decides whether to 
 | `Unknown` | No reliable status: the client is not running, ODSyncUtil is unavailable, or the client reports a closed state. | No | 1010 |
 
 **Marker**:
-The file `%LOCALAPPDATA%\OneDriveAdoption\healthy.flag`. It makes event 1003 log once per recovery rather than on every run. A `Healthy` run with no marker logs 1003 and creates it. A `NeedsReauth` or `NotSignedIn` run deletes it, so the next `Healthy` run logs the recovery. `Degraded` and `Unknown` leave it alone.
+The file `%LOCALAPPDATA%\OneDriveAdoption\healthy.flag`. It makes event 1003 log once per recovery rather than on every run. A `Healthy` run with no marker logs 1003 and creates it. A `NeedsReauth`, `NotSignedIn` or `Degraded` run deletes it, so the next `Healthy` run logs the recovery. `Unknown` leaves it alone.
 
 **Nag decision**:
 What one run logs, shows and launches, given the account, the client and the health state.

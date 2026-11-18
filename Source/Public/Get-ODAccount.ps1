@@ -6,6 +6,8 @@ function Get-ODAccount {
         A tenant mismatch makes the account not configured, but the registry email is still returned.
         With no registry email the address comes from AD (mail, then UPN), then the logon name.
         Logs event 1012 when the AD lookup fails or finds nothing and the logon name is used.
+        -SkipDirectoryLookup goes straight to the logon name with no lookup and no event, so a re-check
+        in the same run does not log 1012 twice.
     #>
     [CmdletBinding()]
     [OutputType([pscustomobject])]
@@ -22,7 +24,10 @@ function Get-ODAccount {
         [string] $ExpectedTenantId = '',
 
         # Seconds before the AD lookup gives up
-        [int] $TimeoutSeconds = 10
+        [int] $TimeoutSeconds = 10,
+
+        # Skip the AD lookup and its 1012 event; for re-checks that only need Configured
+        [switch] $SkipDirectoryLookup
     )
 
     $account = Get-ItemProperty -Path $AccountKeyPath -ErrorAction SilentlyContinue
@@ -33,6 +38,7 @@ function Get-ODAccount {
 
     $email = $null
     if ($hasEmail) { $email = [string]$account.UserEmail }
+    elseif ($SkipDirectoryLookup) { $email = $env:USERNAME }
     else {
         try {
             $escaped = $env:USERNAME.Replace('\', '\5c').Replace('*', '\2a').Replace('(', '\28').Replace(')', '\29').Replace([string][char]0, '\00')
