@@ -126,6 +126,12 @@ index=wineventlog SourceName=OneDriveAdoption
 | stats latest(stage) as stage latest(syncState) as syncState latest(_time) as lastSeen by upn
 ```
 
+A Simple XML dashboard is in `Splunk/OneDriveNag.xml`. In Splunk, create a new dashboard, choose **Source** (classic), and paste the file in. It assumes `index=wineventlog` and `SourceName=OneDriveAdoption`; change the **Index** input if yours differs. Panels:
+
+- Prompt funnel, events over time, and current state per user.
+- Degraded and Unknown events by `syncDetail`, for tuning `AuthPattern`.
+- Machines where a prompt was shown with no outcome logged, which points to Constrained Language Mode.
+
 ## Pilot checklist
 
 - [ ] **Tune `AuthPattern`.** Run the pilot for a week, then check what `syncDetail` actually says when a token has expired. Don't trust the NeedsReauth match until then. Degraded and Unknown events show where the classifier is guessing.
