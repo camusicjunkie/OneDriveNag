@@ -14,6 +14,7 @@
         'New-ODNagLogger'
         'Write-ODNagEvent'
         'Show-ODNagDialog'
+        'Show-ODNagPrompt'
         'Get-ODNagDecision'
         'Get-ODPromptResult'
     )
