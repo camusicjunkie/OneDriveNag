@@ -9,15 +9,9 @@
     and on unlock, repeating every few hours. The repeat catches the roughly weekly
     DISA token expiry in the middle of a session.
 
-    Event IDs (source OneDriveAdoption, Application log, JSON message):
-        1000 / 1001 / 1002 / 1004   first-login  shown / acted / deferred / timed-out-or-dismissed
-        1005 / 1006 / 1007 / 1008   re-auth      shown / acted / deferred / timed-out-or-dismissed
-        1003                        healthy (logged once each time the account recovers)
-        1010                        unknown (client not running, or ODSyncUtil unavailable); no prompt
-        1011                        degraded (a problem sign-in won't fix); no prompt
-        1012                        AD email lookup failed; the logon name is used instead (warning)
-        1013                        OneDrive.exe not found when the user chose Sign in (error)
-        1014                        signed in through OneDrive's own window while the prompt was open; no action taken
+    Events are defined once, in the private event table (Get-ODNagEventTable). Their IDs and
+    meanings are listed in the README. A new event goes in that table and in the README.
+
 .EXAMPLE
     powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Program Files\OneDriveNag\Invoke-OneDriveNag.ps1"
 #>
@@ -50,11 +44,20 @@ $ModuleRoot = $ModuleRoot.TrimEnd('\')
 
 # WPF needs a single-threaded apartment; relaunch with -STA and pass the parameters along
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
+    # Forward the trimmed root, not the value as passed
+    if ($PSBoundParameters.ContainsKey('ModuleRoot')) { $PSBoundParameters['ModuleRoot'] = $ModuleRoot }
+
+    # Quote for the Windows command line: backslashes before a quote (or the closing quote) are
+    # doubled and embedded quotes are escaped, so a trailing backslash or a quote can't break the arguments
+    $quote = {
+        param([string] $Value)
+        '"' + ([regex]::Replace($Value, '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
+    }
     $forwarded = foreach ($entry in $PSBoundParameters.GetEnumerator()) {
         '-{0}' -f $entry.Key
-        '"{0}"' -f $entry.Value
+        & $quote ([string]$entry.Value)
     }
-    $arguments = @('-STA', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $PSCommandPath)) + $forwarded
+    $arguments = @('-STA', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (& $quote $PSCommandPath)) + $forwarded
     Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList $arguments
     return
 }
@@ -80,13 +83,9 @@ function Invoke-NagPrompt {
         [Parameter(Mandatory)]
         [string] $UserEmail,
 
-        # Application log source for telemetry events
+        # Logger from New-ODNagLogger; its context is added to every event
         [Parameter(Mandatory)]
-        [string] $LogSource,
-
-        # Flat file used only when the event source is not registered
-        [Parameter(Mandatory)]
-        [string] $FallbackLogPath,
+        [pscustomobject] $Logger,
 
         # Registry key for the OneDrive Business sync account, for the re-check after the prompt
         [Parameter(Mandatory)]
@@ -99,60 +98,29 @@ function Invoke-NagPrompt {
         # Optional Entra tenant GUID for a strict account match
         [string] $ExpectedTenantId = '',
 
-        # Fields added to every telemetry event
-        [hashtable] $Context = @{},
-
         # Minutes before the prompt closes itself
         [int] $TimeoutMinutes = 30
     )
 
-    $log = @{ LogSource = $LogSource; FallbackLogPath = $FallbackLogPath; Data = $Context }
+    Write-ODNagEvent -Logger $Logger -Event "${Kind}Shown"
 
-    $profiles = @{
-        FirstLogin = @{
-            Ids     = @{ Shown = 1000; SignIn = 1001; Later = 1002; Other = 1004 }
-            Title   = 'Sign in to OneDrive'
-            Message = 'Your files are moving to OneDrive. Please sign in now so your Desktop and Documents back up automatically. It takes about 20 seconds with your CAC.'
-        }
-        Reauth     = @{
-            Ids     = @{ Shown = 1005; SignIn = 1006; Later = 1007; Other = 1008 }
-            Title   = 'Sign back in to OneDrive'
-            Message = 'Your OneDrive session has expired and your files have stopped backing up. Please sign in again with your CAC to resume syncing.'
-        }
-    }
-    $selected = $profiles[$Kind]
-
-    Write-ODNagEvent -EventId $selected.Ids.Shown -Stage "${Kind}Shown" @log
-
-    $action = Show-ODNagDialog -XamlPath $XamlPath -UserEmail $UserEmail `
-        -Title $selected.Title -Message $selected.Message -TimeoutMinutes $TimeoutMinutes
+    $action = Show-ODNagPrompt -Kind $Kind -XamlPath $XamlPath -UserEmail $UserEmail -TimeoutMinutes $TimeoutMinutes
 
     # Re-check before acting: the user may have signed in through OneDrive's own window while ours was open
-    $signedIn = if ($Kind -eq 'FirstLogin') {
-        Test-ODAccountConfigured -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId
+    $recheck = if ($Kind -eq 'FirstLogin') {
+        @{ AccountConfigured = [bool](Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId `
+                -Logger $Logger -SkipDirectoryLookup).Configured }
     }
     else {
-        (Get-ODHealthState -SyncStatus (Get-ODSyncStatus -ExePath $SyncUtilPath)).State -eq 'Healthy'
+        @{ HealthState = (Get-ODHealthState -ExePath $SyncUtilPath).State }
     }
 
-    if ($signedIn) {
-        Write-ODNagEvent -EventId 1014 -Stage "${Kind}SignedInElsewhere" -LogSource $LogSource `
-            -FallbackLogPath $FallbackLogPath -Data ($Context + @{ action = $action })
-        return
+    $result = Get-ODPromptResult -Action $action -Kind $Kind @recheck
+    foreach ($e in $result.Events) {
+        Write-ODNagEvent -Logger $Logger -Event $e.Event -Data $e.Data
     }
-
-    switch ($action) {
-        'SignIn' {
-            Write-ODNagEvent -EventId $selected.Ids.SignIn -Stage "${Kind}Acted" @log
-            $null = Start-ODClient -Restart:($Kind -eq 'Reauth') -Data $Context `
-                -LogSource $LogSource -FallbackLogPath $FallbackLogPath
-        }
-        'Later' {
-            Write-ODNagEvent -EventId $selected.Ids.Later -Stage "${Kind}Deferred" -EntryType 'Warning' @log
-        }
-        default {
-            Write-ODNagEvent -EventId $selected.Ids.Other -Stage "${Kind}$action" -EntryType 'Warning' @log
-        }
+    if ($result.Launch -ne 'None') {
+        $null = Start-ODClient -Restart:($result.Launch -eq 'Restart') -Logger $Logger
     }
 }
 
@@ -164,15 +132,19 @@ if (-not $mutex.WaitOne(0)) { return }
 try {
     Import-Module -Name (Join-Path -Path $ModuleRoot -ChildPath 'OneDriveNag.psd1') -Force
 
+    # One logger for the run; its context grows as the account and health state become known
+    $logger = New-ODNagLogger -LogSource $LogSource -FallbackLogPath $FallbackLogPath
+
     $xamlPath = Join-Path -Path $ModuleRoot -ChildPath 'OneDrivePrompt.xaml'
     $syncUtilPath = Join-Path -Path $ModuleRoot -ChildPath 'ODSyncUtil.exe'
     $healthMarker = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OneDriveAdoption\healthy.flag'
 
     # Wait for the client before reading any state: a not-yet-started client looks "signed out"
-    $clientRunning = Wait-ODClient -TimeoutSeconds $ClientWaitSeconds
-    $logTarget = @{ LogSource = $LogSource; FallbackLogPath = $FallbackLogPath }
-    $userEmail = Get-ODUserEmail -AccountKeyPath $AccountKeyPath @logTarget
-    $context = @{ upn = $userEmail; clientRunning = $clientRunning }
+    $clientRunning = Start-ODClient -Background -TimeoutSeconds $ClientWaitSeconds -Logger $logger
+    $account = Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId -Logger $logger
+    $userEmail = $account.Email
+    $logger.Context['upn'] = $userEmail
+    $logger.Context['clientRunning'] = $clientRunning
     $promptArgs = @{
         XamlPath         = $xamlPath
         UserEmail        = $userEmail
@@ -182,43 +154,34 @@ try {
         TimeoutMinutes   = $PromptTimeoutMinutes
     }
 
-    # --- First login: no account configured yet (checked after the wait, so an auto sign-in counts) ---
-    if (-not (Test-ODAccountConfigured -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId)) {
-        Invoke-NagPrompt -Kind 'FirstLogin' -Context $context @promptArgs @logTarget
-        return
+    # Read the health state only when it can matter: an account is configured and the client is running
+    $healthState = 'Unknown'
+    if ($account.Configured -and $clientRunning) {
+        $health = Get-ODHealthState -ExePath $syncUtilPath
+        $healthState = $health.State
+        $logger.Context['syncState'] = $health.State
+        $logger.Context['syncDetail'] = $health.Detail
+    }
+    elseif ($account.Configured) {
+        $logger.Context['syncState'] = 'Unknown'
+        $logger.Context['syncDetail'] = 'OneDrive.exe not running in this session'
     }
 
-    # --- Account configured, but the client never started: no reliable status, so don't prompt ---
-    if (-not $clientRunning) {
-        $context['syncState'] = 'Unknown'
-        $context['syncDetail'] = 'OneDrive.exe not running in this session'
-        Write-ODNagEvent -EventId 1010 -Stage 'StatusUnknown' -Data $context @logTarget
-        return
+    $markerPresent = Test-Path -Path $healthMarker
+    $decision = Get-ODNagDecision -AccountConfigured ([bool]$account.Configured) -ClientRunning ([bool]$clientRunning) `
+        -HealthState $healthState -MarkerPresent $markerPresent
+
+    foreach ($e in $decision.Events) {
+        Write-ODNagEvent -Logger $logger -Event $e
     }
 
-    # --- Account configured and client running: classify its health ---
-    $health = Get-ODHealthState -SyncStatus (Get-ODSyncStatus -ExePath $syncUtilPath)
-    $context['syncState'] = $health.State
-    $context['syncDetail'] = $health.Detail
+    switch ($decision.Marker) {
+        'Set'   { $null = New-Item -ItemType File -Path $healthMarker -Force }
+        'Clear' { if ($markerPresent) { Remove-Item -Path $healthMarker -Force } }
+    }
 
-    switch ($health.State) {
-        'Healthy' {
-            if (-not (Test-Path -Path $healthMarker)) {
-                Write-ODNagEvent -EventId 1003 -Stage 'Healthy' -Data $context @logTarget
-                $null = New-Item -ItemType File -Path $healthMarker -Force
-            }
-        }
-        { $_ -in 'NeedsReauth', 'NotSignedIn' } {
-            # Delete the marker so the next healthy run logs the recovery
-            if (Test-Path -Path $healthMarker) { Remove-Item -Path $healthMarker -Force }
-            Invoke-NagPrompt -Kind 'Reauth' -Context $context @promptArgs @logTarget
-        }
-        'Degraded' {
-            Write-ODNagEvent -EventId 1011 -Stage 'Degraded' -EntryType 'Warning' -Data $context @logTarget
-        }
-        default {
-            Write-ODNagEvent -EventId 1010 -Stage 'StatusUnknown' -Data $context @logTarget
-        }
+    if ($decision.Prompt) {
+        Invoke-NagPrompt -Kind $decision.Prompt -Logger $logger @promptArgs
     }
 }
 finally {

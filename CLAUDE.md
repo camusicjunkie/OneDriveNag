@@ -20,8 +20,10 @@ not be exported go in `Source/Private/`. `Invoke-OneDriveNag.ps1`, `OneDriveProm
 - Every module function takes its input only through its parameters. No `$script:` variables;
   the module keeps no state. The entry script holds the defaults and passes them in.
 - Nothing writes to the console. The task runs hidden and non-interactively, so log to the event
-  log with `Write-ODNagEvent` instead of `Write-Host`, `Write-Warning` or `Write-Verbose`. A new
-  event ID goes in the table in the `Invoke-OneDriveNag.ps1` header and in `README.md`.
+  log with `Write-ODNagEvent` instead of `Write-Host`, `Write-Warning` or `Write-Verbose`. Events are
+  defined once, in the table returned by `Source/Private/Get-ODNagEventTable.ps1`. A new event goes
+  in that table and in the event table in `README.md`. Functions log through the logger from
+  `New-ODNagLogger`, never through a log source or path parameter.
 - Everything runs in the logged-on user's session: the StorageProviderStatusUI API that
   ODSyncUtil uses is per-user and session-bound, and the WPF prompt needs an interactive desktop.
 

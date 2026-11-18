@@ -20,10 +20,12 @@ function Show-ODNagDialog {
         [string] $UserEmail,
 
         # Header title text
-        [string] $Title = 'Sign in to OneDrive',
+        [Parameter(Mandatory)]
+        [string] $Title,
 
         # Body message text
-        [string] $Message = 'Please sign in to OneDrive with your CAC.',
+        [Parameter(Mandatory)]
+        [string] $Message,
 
         # Minutes before the prompt closes itself; 0 disables the timeout
         [int] $TimeoutMinutes = 30

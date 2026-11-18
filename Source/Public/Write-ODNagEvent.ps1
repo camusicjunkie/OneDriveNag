@@ -3,62 +3,57 @@ function Write-ODNagEvent {
     .SYNOPSIS
         Writes a structured (JSON) telemetry event to the Application log for Splunk to pick up.
     .DESCRIPTION
-        Falls back to a flat file when the event source is not registered. Never writes
-        to the console; if both targets fail, the event is dropped.
+        The event ID, stage and entry type come from the event table. Fields from the logger's
+        context and from -Data are added, but the schema fields (schema, timestamp, stage, user,
+        computer, sid, session) always win. Falls back to a flat file when the event source is not
+        registered. Never throws and never writes to the console; if both targets fail, or the event
+        name is unknown, the event is dropped.
     #>
     [CmdletBinding()]
     param(
-        # Application log source; registered machine-side by GPP Registry (or Register-OneDriveNagSource.ps1)
+        # Logger from New-ODNagLogger
         [Parameter(Mandatory)]
-        [string] $LogSource,
+        [pscustomobject] $Logger,
 
-        # Flat file used only when the event source is not registered
+        # Event name from the event table, such as FirstLoginShown, ReauthActed or Healthy
         [Parameter(Mandatory)]
-        [string] $FallbackLogPath,
-
-        # Numeric event ID for the funnel stage
-        [Parameter(Mandatory)]
-        [int] $EventId,
-
-        # Short stage name, such as FirstLoginShown, ReauthActed, or Healthy
-        [Parameter(Mandatory)]
-        [string] $Stage,
+        [string] $Event,
 
         # Extra key/value fields to add to the JSON payload
-        [hashtable] $Data = @{},
-
-        # Event log entry type
-        [ValidateSet('Information', 'Warning', 'Error')]
-        [string] $EntryType = 'Information'
+        [hashtable] $Data = @{}
     )
 
-    $payload = [ordered]@{
-        schema    = 2
-        timestamp = (Get-Date).ToUniversalTime().ToString('o')
-        stage     = $Stage
-        user      = $env:USERNAME
-        computer  = $env:COMPUTERNAME
-        sid       = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
-        session   = (Get-Process -Id $PID).SessionId
-    }
-    foreach ($key in $Data.Keys) { $payload[$key] = $Data[$key] }
-
-    $json = $payload | ConvertTo-Json -Compress
-
     try {
-        Write-EventLog -LogName Application -Source $LogSource -EventId $EventId `
-            -EntryType $EntryType -Message $json -ErrorAction Stop
-    }
-    catch {
+        $definition = (Get-ODNagEventTable)[$Event]
+        if ($null -eq $definition) { return }
+
+        $payload = [ordered]@{}
+        foreach ($source in $Logger.Context, $Data) {
+            foreach ($key in $source.Keys) { $payload[$key] = $source[$key] }
+        }
+        $payload['schema'] = 2
+        $payload['timestamp'] = (Get-Date).ToUniversalTime().ToString('o')
+        $payload['stage'] = $definition.Stage
+        $payload['user'] = $env:USERNAME
+        $payload['computer'] = $env:COMPUTERNAME
+        $payload['sid'] = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+        $payload['session'] = (Get-Process -Id $PID).SessionId
+
+        $json = $payload | ConvertTo-Json -Compress
+
         try {
-            $directory = Split-Path -Path $FallbackLogPath -Parent
+            Write-EventLog -LogName Application -Source $Logger.LogSource -EventId $definition.EventId `
+                -EntryType $definition.EntryType -Message $json -ErrorAction Stop
+        }
+        catch {
+            $directory = Split-Path -Path $Logger.FallbackLogPath -Parent
             if (-not (Test-Path -Path $directory)) {
                 $null = New-Item -ItemType Directory -Path $directory -Force -ErrorAction Stop
             }
-            Add-Content -Path $FallbackLogPath -Value $json -ErrorAction Stop
+            Add-Content -Path $Logger.FallbackLogPath -Value $json -ErrorAction Stop
         }
-        catch {
-            # Nowhere left to log; drop the event rather than write to the console
-        }
+    }
+    catch {
+        # Nowhere left to log; drop the event rather than throw or write to the console
     }
 }

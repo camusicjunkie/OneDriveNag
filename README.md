@@ -14,12 +14,23 @@ Build-Module -SourcePath ./Source/build.psd1
 
 The output lands in `build/OneDriveNag/<version>/` (gitignored). That folder is what you deploy.
 
+## Test
+
+Tests are [Pester 5](https://pester.dev) and live in `Tests/`, outside `Source/`, so the build leaves them out of its output. Run them from the repo root:
+
+```powershell
+Invoke-Pester -Path ./Tests -Output Detailed
+```
+
+They mock `Invoke-ODSyncUtil`, so they need no OneDrive or `ODSyncUtil.exe`.
+
 | Path | Purpose |
 |---|---|
 | `Source/Public/` | One file per module function. The build joins them into `OneDriveNag.psm1` and exports them all. |
+| `Source/Private/` | Helpers the module uses but does not export, such as `Invoke-ODSyncUtil`. |
 | `Source/OneDriveNag.psd1` | Module manifest. The build stamps the exported function list into the output copy. |
 | `Source/Invoke-OneDriveNag.ps1` | Entry point the scheduled task runs. Checks OneDrive state, shows the prompt, and logs events. |
-| `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. |
+| `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. It holds no title or message text; each prompt kind's text is defined once in the module (`Get-ODPromptProfile`) and passed to `Show-ODNagDialog` by `Show-ODNagPrompt`. `Show-ODNagPrompt` is the public entry point for showing a prompt: give it a kind (`FirstLogin` or `Reauth`) and it returns `SignIn`, `Later`, `TimedOut` or `Dismissed`. |
 | `Source/Register-OneDriveNagSource.ps1` | Optional. Registers the event log source on one machine. The GPO below does the same job. |
 
 The build copies the script, XAML and registration script next to the module, so the output folder holds everything except `ODSyncUtil.exe`. That binary reads per-user sync status; build it and add it to the deployed folder yourself (see [Things to check in a DoD build](#things-to-check-in-a-dod-build)).
@@ -33,10 +44,13 @@ The build copies the script, XAML and registration script next to the module, so
    - **Healthy:** logged once each time the account recovers; no prompt.
    - **NeedsReauth** or **NotSignedIn:** shows the **re-auth** prompt.
    - **Degraded** (paused, blocked, full, error): logged; no prompt, because signing in won't fix it.
-   - **Unknown** (client not running, or ODSyncUtil unavailable): logged; no prompt.
-5. When the prompt closes, the state is checked again. If the user signed in through OneDrive's own window while the prompt was open, the button they clicked is ignored and event 1014 is logged.
-6. Otherwise, if the user clicked **Sign in**, OneDrive is started. For re-auth it is restarted first, so it re-checks its token.
+   - **Unknown** (client not running, a closed client reporting "Start OneDrive", or ODSyncUtil unavailable): logged; no prompt.
+   The script only gathers these facts and carries out the result. `Get-ODNagDecision` makes the choice: what to log, which prompt to show, and whether to set, clear or keep the healthy marker. The marker is cleared on NeedsReauth, NotSignedIn and Degraded, and left alone on Unknown.
+5. When the prompt closes, the state is checked again and `Get-ODPromptResult` decides what follows. A re-auth prompt is acted on only if the state is still NeedsReauth or NotSignedIn, and a first-login prompt only if no account is configured yet. If the user signed in through OneDrive's own window while the prompt was open (any other result), the button they clicked is ignored, event 1014 is logged with the action and sync state, and nothing is launched.
+6. Otherwise, if the user clicked **Sign in**, OneDrive is started. For re-auth it is restarted first, so it re-checks its token. Later, timed out and dismissed launch nothing.
 7. An unanswered prompt closes itself after 30 minutes and is logged as timed out.
+
+WPF needs a single-threaded apartment, so a script started without `-STA` relaunches itself with it. The relaunch forwards the parameters with the module root's trailing backslash removed, and quotes each value so a path ending in a backslash or containing a quote reaches the new process intact.
 
 The prompt opens in front of other windows but doesn't stay on top. If OneDrive's own sign-in window is open too, the user can bring it forward.
 
@@ -111,8 +125,10 @@ All events use source `OneDriveAdoption` in the Application log. The message is 
 | 1010 | Unknown: client not running, or ODSyncUtil unavailable; no prompt |
 | 1011 | Degraded: a problem signing in won't fix; no prompt |
 | 1012 | AD email lookup failed; the logon name was used instead (warning) |
-| 1013 | `OneDrive.exe` not found when the user clicked Sign in (error) |
+| 1013 | `OneDrive.exe` not found when starting the client (error) |
 | 1014 | Signed in through OneDrive's own window while the prompt was open; no action taken. `stage` says which prompt, `action` says how it closed |
+
+Events 1004 and 1008 log two stages each: `FirstLoginTimedOut` / `FirstLoginDismissed` and `ReauthTimedOut` / `ReauthDismissed`. Events are defined once, in `Source/Private/Get-ODNagEventTable.ps1`.
 
 Every event includes `stage`, `user`, `computer`, `sid`, and `session`. Status events also include `upn`, `clientRunning`, `syncState`, and `syncDetail`, where `syncDetail` is the raw ODSyncUtil state text.
 
@@ -134,7 +150,7 @@ A Simple XML dashboard is in `Splunk/OneDriveNag.xml`. In Splunk, create a new d
 
 ## Pilot checklist
 
-- [ ] **Tune `AuthPattern`.** Run the pilot for a week, then check what `syncDetail` actually says when a token has expired. Don't trust the NeedsReauth match until then. Degraded and Unknown events show where the classifier is guessing.
+- [ ] **Tune `AuthPattern`.** The default is `signed.?out|sign.?in (required|needed)|auth|credential`, matched per root against `CurrentStateString` and `Label` only (a bare "Signed in" label is healthy). `UnknownPattern` (default `Unknown \(\d+\)|Start OneDrive`) catches a closed client. Run the pilot for a week, then check what `syncDetail` actually says when a token has expired. Don't trust the NeedsReauth match until then. Degraded and Unknown events show where the classifier is guessing.
 - [ ] **Check the re-check after re-auth.** Right after a sign-in, ODSyncUtil may still report the old auth state, so the check after the prompt misses it and "Sign in now" restarts OneDrive anyway. If 1006 events are often followed shortly by 1003 for the same user, add a short delay before the check.
 - [ ] **Confirm `Start-ODClient -Restart`.** Check that it brings up the sign-in window for an expired token on your OneDrive build.
 - [ ] **Confirm FullLanguage mode.** Check that your WDAC/AppLocker policy runs the signed scripts in FullLanguage mode. If they drop to Constrained Language, you'll see Shown events with no Acted or Deferred event after them.

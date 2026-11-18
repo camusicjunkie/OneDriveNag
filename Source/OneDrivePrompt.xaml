@@ -35,18 +35,17 @@
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="&#xE753;" FontFamily="Segoe MDL2 Assets" Foreground="White" FontSize="26"
                      VerticalAlignment="Center" Margin="0,0,12,0"/>
-          <TextBlock x:Name="TitleText" Text="Sign in to OneDrive" Foreground="White" FontSize="20"
+          <TextBlock x:Name="TitleText" Foreground="White" FontSize="20"
                      FontWeight="SemiBold" VerticalAlignment="Center"/>
         </StackPanel>
       </Border>
 
       <StackPanel Grid.Row="1" Margin="24,20">
-        <TextBlock x:Name="MessageText" TextWrapping="Wrap" Foreground="#FFE5E9F0" FontSize="14" LineHeight="20"
-                   Text="Your files are moving to OneDrive. Please sign in now so your Desktop and Documents back up automatically. It takes about 20 seconds with your CAC."/>
+        <TextBlock x:Name="MessageText" TextWrapping="Wrap" Foreground="#FFE5E9F0" FontSize="14" LineHeight="20"/>
         <Border Margin="0,16,0,0" CornerRadius="6" Background="#FF232833" Padding="12,10">
           <StackPanel>
             <TextBlock Text="Sign in as" Foreground="#FF8A93A2" FontSize="11"/>
-            <TextBlock x:Name="EmailText" Text="user@mail.mil" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
+            <TextBlock x:Name="EmailText" Foreground="White" FontSize="15" FontWeight="SemiBold"/>
           </StackPanel>
         </Border>
       </StackPanel>

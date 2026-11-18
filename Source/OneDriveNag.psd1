@@ -8,16 +8,15 @@
     PowerShellVersion = '5.1'
 
     FunctionsToExport = @(
-        'Test-ODAccountConfigured'
-        'Get-ODUserEmail'
-        'Get-ODClientPath'
-        'Test-ODClientRunning'
-        'Wait-ODClient'
+        'Get-ODAccount'
         'Start-ODClient'
-        'Get-ODSyncStatus'
         'Get-ODHealthState'
+        'New-ODNagLogger'
         'Write-ODNagEvent'
         'Show-ODNagDialog'
+        'Show-ODNagPrompt'
+        'Get-ODNagDecision'
+        'Get-ODPromptResult'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()
