@@ -95,6 +95,26 @@ Describe 'Event table' {
             $k | Should -Match '^(FirstLogin|Reauth)(Shown|Acted|Deferred|TimedOut|Dismissed|SignedInElsewhere)$'
         }
     }
+    It 'names prompt stages with the endings the Splunk dashboard matches' {
+        $xml = Get-Content -Raw (Join-Path $root 'Splunk\OneDriveNag.xml')
+        foreach ($ending in 'Shown', 'Acted', 'SignedInElsewhere') { $xml | Should -Match ([regex]::Escape("$ending$")) }
+        foreach ($kind in 'FirstLogin', 'Reauth') {
+            foreach ($ending in 'Shown', 'Acted', 'SignedInElsewhere') {
+                $table.Keys | Should -Contain "$kind$ending"
+            }
+            # Only the Shown stage may end in Shown, or the dashboard's shown/outcome split breaks
+            foreach ($k in $table.Keys | Where-Object { $_ -like "$kind*" -and $_ -ne "${kind}Shown" }) { $k | Should -Not -Match 'Shown$' }
+        }
+    }
+
+    It 'shares an event ID only between TimedOut/Dismissed of one kind, or SignedInElsewhere across kinds' {
+        $shared = $table.GetEnumerator() | Group-Object { $_.Value.EventId } | Where-Object Count -gt 1
+        ($shared.Name | Sort-Object) -join ',' | Should -Be '1004,1008,1014'
+        foreach ($g in $shared) {
+            $stages = $g.Group | ForEach-Object { $_.Value.Stage }
+            $stages.Count | Should -Be ($stages | Sort-Object -Unique).Count
+        }
+    }
 }
 
 Describe 'Logger parameters' {
