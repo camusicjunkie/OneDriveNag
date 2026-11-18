@@ -45,8 +45,9 @@ The build copies the script, XAML and registration script next to the module, so
    - **NeedsReauth** or **NotSignedIn:** shows the **re-auth** prompt.
    - **Degraded** (paused, blocked, full, error): logged; no prompt, because signing in won't fix it.
    - **Unknown** (client not running, a closed client reporting "Start OneDrive", or ODSyncUtil unavailable): logged; no prompt.
-5. When the prompt closes, the state is checked again. If the user signed in through OneDrive's own window while the prompt was open, the button they clicked is ignored and event 1014 is logged.
-6. Otherwise, if the user clicked **Sign in**, OneDrive is started. For re-auth it is restarted first, so it re-checks its token.
+   The script only gathers these facts and carries out the result. `Get-ODNagDecision` makes the choice: what to log, which prompt to show, and whether to set, clear or keep the healthy marker. The marker is cleared on NeedsReauth, NotSignedIn and Degraded, and left alone on Unknown.
+5. When the prompt closes, the state is checked again and `Get-ODPromptResult` decides what follows. A re-auth prompt is acted on only if the state is still NeedsReauth or NotSignedIn, and a first-login prompt only if no account is configured yet. If the user signed in through OneDrive's own window while the prompt was open (any other result), the button they clicked is ignored, event 1014 is logged with the action and sync state, and nothing is launched.
+6. Otherwise, if the user clicked **Sign in**, OneDrive is started. For re-auth it is restarted first, so it re-checks its token. Later, timed out and dismissed launch nothing.
 7. An unanswered prompt closes itself after 30 minutes and is logged as timed out.
 
 The prompt opens in front of other windows but doesn't stay on top. If OneDrive's own sign-in window is open too, the user can bring it forward.

@@ -13,6 +13,8 @@
         'Get-ODHealthState'
         'Write-ODNagEvent'
         'Show-ODNagDialog'
+        'Get-ODNagDecision'
+        'Get-ODPromptResult'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

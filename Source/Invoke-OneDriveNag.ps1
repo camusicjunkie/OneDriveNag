@@ -128,32 +128,24 @@ function Invoke-NagPrompt {
         -Title $selected.Title -Message $selected.Message -TimeoutMinutes $TimeoutMinutes
 
     # Re-check before acting: the user may have signed in through OneDrive's own window while ours was open
-    $signedIn = if ($Kind -eq 'FirstLogin') {
-        (Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId `
-            -LogSource $LogSource -FallbackLogPath $FallbackLogPath).Configured
+    $recheck = if ($Kind -eq 'FirstLogin') {
+        @{ AccountConfigured = [bool](Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId `
+                -LogSource $LogSource -FallbackLogPath $FallbackLogPath).Configured }
     }
     else {
-        (Get-ODHealthState -ExePath $SyncUtilPath).State -eq 'Healthy'
+        @{ HealthState = (Get-ODHealthState -ExePath $SyncUtilPath).State }
     }
 
-    if ($signedIn) {
-        Write-ODNagEvent -EventId 1014 -Stage "${Kind}SignedInElsewhere" -LogSource $LogSource `
-            -FallbackLogPath $FallbackLogPath -Data ($Context + @{ action = $action })
-        return
+    $result = Get-ODPromptResult -Action $action -Kind $Kind @recheck
+    foreach ($e in $result.Events) {
+        $data = $Context.Clone()
+        foreach ($key in $e.Data.Keys) { $data[$key] = $e.Data[$key] }
+        Write-ODNagEvent -EventId $e.EventId -Stage $e.Stage -EntryType $e.EntryType `
+            -LogSource $LogSource -FallbackLogPath $FallbackLogPath -Data $data
     }
-
-    switch ($action) {
-        'SignIn' {
-            Write-ODNagEvent -EventId $selected.Ids.SignIn -Stage "${Kind}Acted" @log
-            $null = Start-ODClient -Restart:($Kind -eq 'Reauth') -Data $Context `
-                -LogSource $LogSource -FallbackLogPath $FallbackLogPath
-        }
-        'Later' {
-            Write-ODNagEvent -EventId $selected.Ids.Later -Stage "${Kind}Deferred" -EntryType 'Warning' @log
-        }
-        default {
-            Write-ODNagEvent -EventId $selected.Ids.Other -Stage "${Kind}$action" -EntryType 'Warning' @log
-        }
+    if ($result.Launch -ne 'None') {
+        $null = Start-ODClient -Restart:($result.Launch -eq 'Restart') -Data $Context `
+            -LogSource $LogSource -FallbackLogPath $FallbackLogPath
     }
 }
 
@@ -184,45 +176,35 @@ try {
         TimeoutMinutes   = $PromptTimeoutMinutes
     }
 
-    # --- First login: no account configured yet (checked after the wait, so an auto sign-in counts) ---
-    if (-not $account.Configured) {
-        Invoke-NagPrompt -Kind 'FirstLogin' -Context $context @promptArgs @logTarget
-        return
+    # Read the health state only when it can matter: an account is configured and the client is running
+    $healthState = 'Unknown'
+    if ($account.Configured -and $clientRunning) {
+        $health = Get-ODHealthState -ExePath $syncUtilPath
+        $healthState = $health.State
+        $context['syncState'] = $health.State
+        $context['syncDetail'] = $health.Detail
     }
-
-    # --- Account configured, but the client never started: no reliable status, so don't prompt ---
-    if (-not $clientRunning) {
+    elseif ($account.Configured) {
         $context['syncState'] = 'Unknown'
         $context['syncDetail'] = 'OneDrive.exe not running in this session'
-        Write-ODNagEvent -EventId 1010 -Stage 'StatusUnknown' -Data $context @logTarget
-        return
     }
 
-    # --- Account configured and client running: classify its health ---
-    $health = Get-ODHealthState -ExePath $syncUtilPath
-    $context['syncState'] = $health.State
-    $context['syncDetail'] = $health.Detail
+    $markerPresent = Test-Path -Path $healthMarker
+    $decision = Get-ODNagDecision -AccountConfigured ([bool]$account.Configured) -ClientRunning ([bool]$clientRunning) `
+        -HealthState $healthState -MarkerPresent $markerPresent
 
-    switch ($health.State) {
-        'Healthy' {
-            if (-not (Test-Path -Path $healthMarker)) {
-                Write-ODNagEvent -EventId 1003 -Stage 'Healthy' -Data $context @logTarget
-                $null = New-Item -ItemType File -Path $healthMarker -Force
-            }
-        }
-        { $_ -in 'NeedsReauth', 'NotSignedIn' } {
-            # Delete the marker so the next healthy run logs the recovery
-            if (Test-Path -Path $healthMarker) { Remove-Item -Path $healthMarker -Force }
-            Invoke-NagPrompt -Kind 'Reauth' -Context $context @promptArgs @logTarget
-        }
-        'Degraded' {
-            Write-ODNagEvent -EventId 1011 -Stage 'Degraded' -EntryType 'Warning' -Data $context @logTarget
-        }
-        default {
-            Write-ODNagEvent -EventId 1010 -Stage 'StatusUnknown' -Data $context @logTarget
-        }
+    foreach ($e in $decision.Events) {
+        Write-ODNagEvent -EventId $e.EventId -Stage $e.Stage -EntryType $e.EntryType -Data $context @logTarget
     }
-}
+
+    switch ($decision.Marker) {
+        'Set'   { $null = New-Item -ItemType File -Path $healthMarker -Force }
+        'Clear' { if ($markerPresent) { Remove-Item -Path $healthMarker -Force } }
+    }
+
+    if ($decision.Prompt) {
+        Invoke-NagPrompt -Kind $decision.Prompt -Context $context @promptArgs @logTarget
+    }}
 finally {
     $mutex.ReleaseMutex()
     $mutex.Dispose()
