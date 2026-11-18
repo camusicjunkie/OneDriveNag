@@ -126,6 +126,8 @@ All events use source `OneDriveAdoption` in the Application log. The message is 
 | 1013 | `OneDrive.exe` not found when starting the client (error) |
 | 1014 | Signed in through OneDrive's own window while the prompt was open; no action taken. `stage` says which prompt, `action` says how it closed |
 
+Events 1004 and 1008 log two stages each: `FirstLoginTimedOut` / `FirstLoginDismissed` and `ReauthTimedOut` / `ReauthDismissed`. Events are defined once, in `Source/Private/Get-ODNagEventTable.ps1`.
+
 Every event includes `stage`, `user`, `computer`, `sid`, and `session`. Status events also include `upn`, `clientRunning`, `syncState`, and `syncDetail`, where `syncDetail` is the raw ODSyncUtil state text.
 
 ### Splunk

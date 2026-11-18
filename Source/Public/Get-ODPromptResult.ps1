@@ -10,7 +10,7 @@ function Get-ODPromptResult {
         account is configured. Otherwise it logs 1014 and launches nothing.
 
         Returns an object with:
-          Events  Events to log, each with EventId, Stage, EntryType and Data (extra fields).
+          Events  Events to log, each with Event (the event table name) and Data (extra fields).
           Launch  'Start', 'Restart' or 'None'. Only a Reauth SignIn restarts.
     #>
     [CmdletBinding()]
@@ -34,13 +34,6 @@ function Get-ODPromptResult {
         [string] $HealthState = 'NeedsReauth'
     )
 
-    $ids = if ($Kind -eq 'FirstLogin') {
-        @{ SignIn = 1001; Later = 1002; Other = 1004 }
-    }
-    else {
-        @{ SignIn = 1006; Later = 1007; Other = 1008 }
-    }
-
     $stillNeedsAction = if ($Kind -eq 'FirstLogin') {
         -not $AccountConfigured
     }
@@ -52,22 +45,22 @@ function Get-ODPromptResult {
         $data = @{ action = $Action }
         if ($Kind -eq 'Reauth') { $data['syncState'] = $HealthState }
         return [pscustomobject]@{
-            Events = @(@{ EventId = 1014; Stage = "${Kind}SignedInElsewhere"; EntryType = 'Information'; Data = $data })
+            Events = @(@{ Event = "${Kind}SignedInElsewhere"; Data = $data })
             Launch = 'None'
         }
     }
 
     switch ($Action) {
         'SignIn' {
-            $event = @{ EventId = $ids.SignIn; Stage = "${Kind}Acted"; EntryType = 'Information'; Data = @{} }
+            $event = @{ Event = "${Kind}Acted"; Data = @{} }
             $launch = if ($Kind -eq 'Reauth') { 'Restart' } else { 'Start' }
         }
         'Later' {
-            $event = @{ EventId = $ids.Later; Stage = "${Kind}Deferred"; EntryType = 'Warning'; Data = @{} }
+            $event = @{ Event = "${Kind}Deferred"; Data = @{} }
             $launch = 'None'
         }
         default {
-            $event = @{ EventId = $ids.Other; Stage = "${Kind}$Action"; EntryType = 'Warning'; Data = @{} }
+            $event = @{ Event = "${Kind}$Action"; Data = @{} }
             $launch = 'None'
         }
     }

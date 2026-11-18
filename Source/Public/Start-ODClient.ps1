@@ -18,13 +18,9 @@ function Start-ODClient {
     [CmdletBinding()]
     [OutputType([bool])]
     param(
-        # Application log source for telemetry events
+        # Logger from New-ODNagLogger
         [Parameter(Mandatory)]
-        [string] $LogSource,
-
-        # Flat file used only when the event source is not registered
-        [Parameter(Mandatory)]
-        [string] $FallbackLogPath,
+        [pscustomobject] $Logger,
 
         # Start the client hidden if needed and wait until it is running and settled
         [switch] $Background,
@@ -46,8 +42,7 @@ function Start-ODClient {
 
     $exe = Get-ODClientPath
     if ($null -eq $exe) {
-        Write-ODNagEvent -EventId 1013 -Stage 'ClientNotFound' -EntryType 'Error' `
-            -LogSource $LogSource -FallbackLogPath $FallbackLogPath -Data $Data
+        Write-ODNagEvent -Logger $Logger -Event 'ClientNotFound' -Data $Data
         return $false
     }
 

@@ -2,10 +2,11 @@ BeforeAll {
     $source = Join-Path $PSScriptRoot '..\Source'
     . (Join-Path $source 'Private\Find-ODDirectoryUser.ps1')
     . (Join-Path $source 'Public\Write-ODNagEvent.ps1')
+    . (Join-Path $source 'Public\New-ODNagLogger.ps1')
     . (Join-Path $source 'Public\Get-ODAccount.ps1')
 
     $script:origUser = $env:USERNAME
-    $script:common = @{ AccountKeyPath = 'HKCU:\fake'; LogSource = 'src'; FallbackLogPath = 'x.log' }
+    $script:common = @{ AccountKeyPath = 'HKCU:\fake'; Logger = (New-ODNagLogger -LogSource 'src' -FallbackLogPath 'x.log') }
 }
 
 Describe 'Get-ODAccount' {
@@ -39,13 +40,13 @@ Describe 'Get-ODAccount' {
         Mock Get-ItemProperty { [pscustomobject]@{ UserEmail = ''; ConfiguredTenantId = '' } }
         Mock Find-ODDirectoryUser { $null }
         (Get-ODAccount @common).Email | Should -Be $env:USERNAME
-        Should -Invoke Write-ODNagEvent -ParameterFilter { $EventId -eq 1012 } -Times 1 -Exactly
+        Should -Invoke Write-ODNagEvent -ParameterFilter { $Event -eq 'EmailLookupFailed' } -Times 1 -Exactly
     }
     It 'logs 1012 and falls back to the logon name when the lookup throws' {
         Mock Get-ItemProperty { [pscustomobject]@{ UserEmail = ''; ConfiguredTenantId = '' } }
         Mock Find-ODDirectoryUser { throw 'unreachable' }
         (Get-ODAccount @common).Email | Should -Be $env:USERNAME
-        Should -Invoke Write-ODNagEvent -ParameterFilter { $EventId -eq 1012 } -Times 1 -Exactly
+        Should -Invoke Write-ODNagEvent -ParameterFilter { $Event -eq 'EmailLookupFailed' } -Times 1 -Exactly
     }
     It 'uses the directory mail when the key has no email' {
         Mock Get-ItemProperty { [pscustomobject]@{ UserEmail = ''; ConfiguredTenantId = '' } }
@@ -63,3 +64,4 @@ Describe 'Get-ODAccount' {
         } -Times 1 -Exactly
     }
 }
+

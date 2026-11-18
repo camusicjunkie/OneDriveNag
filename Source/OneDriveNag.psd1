@@ -11,6 +11,7 @@
         'Get-ODAccount'
         'Start-ODClient'
         'Get-ODHealthState'
+        'New-ODNagLogger'
         'Write-ODNagEvent'
         'Show-ODNagDialog'
         'Get-ODNagDecision'

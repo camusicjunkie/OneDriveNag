@@ -8,7 +8,7 @@ function Get-ODNagDecision {
         the client is running.
 
         Returns an object with:
-          Events  Zero or more events to log, each with EventId, Stage and EntryType.
+          Events  Zero or more event names to log, from the event table.
           Prompt  'FirstLogin', 'Reauth', or $null for no prompt.
           Marker  'Set', 'Clear' or 'Keep'.
     #>
@@ -41,13 +41,13 @@ function Get-ODNagDecision {
         $prompt = 'FirstLogin'
     }
     elseif (-not $ClientRunning) {
-        $events = @(@{ EventId = 1010; Stage = 'StatusUnknown'; EntryType = 'Information' })
+        $events = @('StatusUnknown')
     }
     else {
         switch ($HealthState) {
             'Healthy' {
                 if (-not $MarkerPresent) {
-                    $events = @(@{ EventId = 1003; Stage = 'Healthy'; EntryType = 'Information' })
+                    $events = @('Healthy')
                     $marker = 'Set'
                 }
             }
@@ -56,11 +56,11 @@ function Get-ODNagDecision {
                 $marker = 'Clear'
             }
             'Degraded' {
-                $events = @(@{ EventId = 1011; Stage = 'Degraded'; EntryType = 'Warning' })
+                $events = @('Degraded')
                 $marker = 'Clear'
             }
             default {
-                $events = @(@{ EventId = 1010; Stage = 'StatusUnknown'; EntryType = 'Information' })
+                $events = @('StatusUnknown')
             }
         }
     }

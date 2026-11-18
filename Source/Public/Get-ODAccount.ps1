@@ -14,13 +14,9 @@ function Get-ODAccount {
         [Parameter(Mandatory)]
         [string] $AccountKeyPath,
 
-        # Application log source for telemetry events
+        # Logger from New-ODNagLogger
         [Parameter(Mandatory)]
-        [string] $LogSource,
-
-        # Flat file used only when the event source is not registered
-        [Parameter(Mandatory)]
-        [string] $FallbackLogPath,
+        [pscustomobject] $Logger,
 
         # Optional Entra tenant GUID to require an exact match; empty skips the check
         [string] $ExpectedTenantId = '',
@@ -50,8 +46,7 @@ function Get-ODAccount {
         catch { $failure = $_.Exception.Message }
 
         if ($null -eq $email) {
-            Write-ODNagEvent -EventId 1012 -Stage 'EmailLookupFailed' -EntryType 'Warning' `
-                -LogSource $LogSource -FallbackLogPath $FallbackLogPath `
+            Write-ODNagEvent -Logger $Logger -Event 'EmailLookupFailed' `
                 -Data @{ error = $failure; fallback = $env:USERNAME }
             $email = $env:USERNAME
         }

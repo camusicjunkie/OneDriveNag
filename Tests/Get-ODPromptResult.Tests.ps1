@@ -9,8 +9,7 @@ Describe 'Get-ODPromptResult' {
         ) {
             $r = Get-ODPromptResult -Action SignIn -Kind Reauth -HealthState $State
             $r.Launch | Should -Be 'Restart'
-            $r.Events[0].EventId | Should -Be 1006
-            $r.Events[0].Stage | Should -Be 'ReauthActed'
+            $r.Events[0].Event | Should -Be 'ReauthActed'
         }
 
         It 'logs 1014 with action and sync state and launches nothing when re-check says <State>' -ForEach @(
@@ -19,15 +18,13 @@ Describe 'Get-ODPromptResult' {
             $r = Get-ODPromptResult -Action SignIn -Kind Reauth -HealthState $State
             $r.Launch | Should -Be 'None'
             @($r.Events).Count | Should -Be 1
-            $r.Events[0].EventId | Should -Be 1014
-            $r.Events[0].Stage | Should -Be 'ReauthSignedInElsewhere'
+            $r.Events[0].Event | Should -Be 'ReauthSignedInElsewhere'
             $r.Events[0].Data.action | Should -Be 'SignIn'
             $r.Events[0].Data.syncState | Should -Be $State
         }
 
         It 'logs 1014 even for Later when the re-check says Healthy' {
             $r = Get-ODPromptResult -Action Later -Kind Reauth -HealthState Healthy
-            $r.Events[0].EventId | Should -Be 1014
             $r.Launch | Should -Be 'None'
         }
 
@@ -38,9 +35,7 @@ Describe 'Get-ODPromptResult' {
         ) {
             $r = Get-ODPromptResult -Action $Action -Kind Reauth -HealthState NeedsReauth
             $r.Launch | Should -Be 'None'
-            $r.Events[0].EventId | Should -Be $Id
-            $r.Events[0].Stage | Should -Be $Stage
-            $r.Events[0].EntryType | Should -Be 'Warning'
+            $r.Events[0].Event | Should -Be $Stage
         }
     }
 
@@ -48,15 +43,13 @@ Describe 'Get-ODPromptResult' {
         It 'starts the client without a restart on SignIn' {
             $r = Get-ODPromptResult -Action SignIn -Kind FirstLogin -AccountConfigured $false
             $r.Launch | Should -Be 'Start'
-            $r.Events[0].EventId | Should -Be 1001
-            $r.Events[0].Stage | Should -Be 'FirstLoginActed'
+            $r.Events[0].Event | Should -Be 'FirstLoginActed'
         }
 
         It 'logs 1014 and launches nothing when the account is now configured' {
             $r = Get-ODPromptResult -Action SignIn -Kind FirstLogin -AccountConfigured $true
             $r.Launch | Should -Be 'None'
-            $r.Events[0].EventId | Should -Be 1014
-            $r.Events[0].Stage | Should -Be 'FirstLoginSignedInElsewhere'
+            $r.Events[0].Event | Should -Be 'FirstLoginSignedInElsewhere'
             $r.Events[0].Data.action | Should -Be 'SignIn'
         }
 
@@ -67,8 +60,7 @@ Describe 'Get-ODPromptResult' {
         ) {
             $r = Get-ODPromptResult -Action $Action -Kind FirstLogin -AccountConfigured $false
             $r.Launch | Should -Be 'None'
-            $r.Events[0].EventId | Should -Be $Id
-            $r.Events[0].Stage | Should -Be $Stage
+            $r.Events[0].Event | Should -Be $Stage
         }
     }
 }

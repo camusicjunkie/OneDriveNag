@@ -3,9 +3,10 @@ BeforeAll {
     . (Join-Path $source 'Private\Get-ODClientPath.ps1')
     . (Join-Path $source 'Private\Test-ODClientRunning.ps1')
     . (Join-Path $source 'Public\Write-ODNagEvent.ps1')
+    . (Join-Path $source 'Public\New-ODNagLogger.ps1')
     . (Join-Path $source 'Public\Start-ODClient.ps1')
 
-    $script:log = @{ LogSource = 'T'; FallbackLogPath = 'x.log' }
+    $script:log = @{ Logger = (New-ODNagLogger -LogSource 'T' -FallbackLogPath 'x.log') }
 }
 
 Describe 'Start-ODClient' {
@@ -60,7 +61,8 @@ Describe 'Start-ODClient' {
         Mock Test-ODClientRunning { $false }
         Start-ODClient -Background @log | Should -BeFalse
         Start-ODClient -Restart @log | Should -BeFalse
-        Should -Invoke Write-ODNagEvent -Times 2 -Exactly -ParameterFilter { $EventId -eq 1013 }
+        Should -Invoke Write-ODNagEvent -Times 2 -Exactly -ParameterFilter { $Event -eq 'ClientNotFound' }
         Should -Invoke Start-Process -Times 0 -Exactly
     }
 }
+
