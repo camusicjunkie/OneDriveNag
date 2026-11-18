@@ -129,7 +129,8 @@ function Invoke-NagPrompt {
 
     # Re-check before acting: the user may have signed in through OneDrive's own window while ours was open
     $signedIn = if ($Kind -eq 'FirstLogin') {
-        Test-ODAccountConfigured -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId
+        (Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId `
+            -LogSource $LogSource -FallbackLogPath $FallbackLogPath).Configured
     }
     else {
         (Get-ODHealthState -ExePath $SyncUtilPath).State -eq 'Healthy'
@@ -171,7 +172,8 @@ try {
     # Wait for the client before reading any state: a not-yet-started client looks "signed out"
     $clientRunning = Start-ODClient -Background -TimeoutSeconds $ClientWaitSeconds -LogSource $LogSource -FallbackLogPath $FallbackLogPath
     $logTarget = @{ LogSource = $LogSource; FallbackLogPath = $FallbackLogPath }
-    $userEmail = Get-ODUserEmail -AccountKeyPath $AccountKeyPath @logTarget
+    $account = Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId @logTarget
+    $userEmail = $account.Email
     $context = @{ upn = $userEmail; clientRunning = $clientRunning }
     $promptArgs = @{
         XamlPath         = $xamlPath
@@ -183,7 +185,7 @@ try {
     }
 
     # --- First login: no account configured yet (checked after the wait, so an auto sign-in counts) ---
-    if (-not (Test-ODAccountConfigured -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId)) {
+    if (-not $account.Configured) {
         Invoke-NagPrompt -Kind 'FirstLogin' -Context $context @promptArgs @logTarget
         return
     }

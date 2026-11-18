@@ -8,8 +8,7 @@
     PowerShellVersion = '5.1'
 
     FunctionsToExport = @(
-        'Test-ODAccountConfigured'
-        'Get-ODUserEmail'
+        'Get-ODAccount'
         'Start-ODClient'
         'Get-ODHealthState'
         'Write-ODNagEvent'

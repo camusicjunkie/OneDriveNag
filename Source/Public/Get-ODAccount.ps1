@@ -1,0 +1,65 @@
+function Get-ODAccount {
+    <#
+    .SYNOPSIS
+        Reads the OneDrive Business account once and returns Configured, Email and TenantMatch.
+    .DESCRIPTION
+        A tenant mismatch makes the account not configured, but the registry email is still returned.
+        With no registry email the address comes from AD (mail, then UPN), then the logon name.
+        Logs event 1012 when the AD lookup fails or finds nothing and the logon name is used.
+    #>
+    [CmdletBinding()]
+    [OutputType([pscustomobject])]
+    param(
+        # Registry key for the OneDrive Business sync account
+        [Parameter(Mandatory)]
+        [string] $AccountKeyPath,
+
+        # Application log source for telemetry events
+        [Parameter(Mandatory)]
+        [string] $LogSource,
+
+        # Flat file used only when the event source is not registered
+        [Parameter(Mandatory)]
+        [string] $FallbackLogPath,
+
+        # Optional Entra tenant GUID to require an exact match; empty skips the check
+        [string] $ExpectedTenantId = '',
+
+        # Seconds before the AD lookup gives up
+        [int] $TimeoutSeconds = 10
+    )
+
+    $account = Get-ItemProperty -Path $AccountKeyPath -ErrorAction SilentlyContinue
+    $hasEmail = -not [string]::IsNullOrWhiteSpace($account.UserEmail)
+
+    $tenantMatch = [string]::IsNullOrWhiteSpace($ExpectedTenantId) -or
+        $account.ConfiguredTenantId -eq $ExpectedTenantId
+
+    $email = $null
+    if ($hasEmail) { $email = [string]$account.UserEmail }
+    else {
+        try {
+            $escaped = $env:USERNAME.Replace('\', '\5c').Replace('*', '\2a').Replace('(', '\28').Replace(')', '\29').Replace([string][char]0, '\00')
+            $user = Find-ODDirectoryUser -Filter "(&(objectCategory=user)(sAMAccountName=$escaped))" -TimeoutSeconds $TimeoutSeconds
+            if ($null -ne $user) {
+                if (-not [string]::IsNullOrWhiteSpace($user.Mail)) { $email = $user.Mail }
+                elseif (-not [string]::IsNullOrWhiteSpace($user.UserPrincipalName)) { $email = $user.UserPrincipalName }
+            }
+            $failure = if ($null -eq $email) { 'no directory entry found' }
+        }
+        catch { $failure = $_.Exception.Message }
+
+        if ($null -eq $email) {
+            Write-ODNagEvent -EventId 1012 -Stage 'EmailLookupFailed' -EntryType 'Warning' `
+                -LogSource $LogSource -FallbackLogPath $FallbackLogPath `
+                -Data @{ error = $failure; fallback = $env:USERNAME }
+            $email = $env:USERNAME
+        }
+    }
+
+    [pscustomobject]@{
+        Configured  = ($hasEmail -and $tenantMatch)
+        Email       = $email
+        TenantMatch = [bool]$tenantMatch
+    }
+}
