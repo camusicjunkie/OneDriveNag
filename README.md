@@ -122,7 +122,7 @@ All events use source `OneDriveAdoption` in the Application log. The message is 
 | 1010 | Unknown: client not running, or ODSyncUtil unavailable; no prompt |
 | 1011 | Degraded: a problem signing in won't fix; no prompt |
 | 1012 | AD email lookup failed; the logon name was used instead (warning) |
-| 1013 | `OneDrive.exe` not found when the user clicked Sign in (error) |
+| 1013 | `OneDrive.exe` not found when starting the client (error) |
 | 1014 | Signed in through OneDrive's own window while the prompt was open; no action taken. `stage` says which prompt, `action` says how it closed |
 
 Every event includes `stage`, `user`, `computer`, `sid`, and `session`. Status events also include `upn`, `clientRunning`, `syncState`, and `syncDetail`, where `syncDetail` is the raw ODSyncUtil state text.

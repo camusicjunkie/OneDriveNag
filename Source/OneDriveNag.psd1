@@ -10,9 +10,6 @@
     FunctionsToExport = @(
         'Test-ODAccountConfigured'
         'Get-ODUserEmail'
-        'Get-ODClientPath'
-        'Test-ODClientRunning'
-        'Wait-ODClient'
         'Start-ODClient'
         'Get-ODHealthState'
         'Write-ODNagEvent'

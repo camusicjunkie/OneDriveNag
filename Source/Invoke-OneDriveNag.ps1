@@ -16,7 +16,7 @@
         1010                        unknown (client not running, or ODSyncUtil unavailable); no prompt
         1011                        degraded (a problem sign-in won't fix); no prompt
         1012                        AD email lookup failed; the logon name is used instead (warning)
-        1013                        OneDrive.exe not found when the user chose Sign in (error)
+        1013                        OneDrive.exe not found when starting the client (error)
         1014                        signed in through OneDrive's own window while the prompt was open; no action taken
 .EXAMPLE
     powershell.exe -STA -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\Program Files\OneDriveNag\Invoke-OneDriveNag.ps1"
@@ -169,7 +169,7 @@ try {
     $healthMarker = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'OneDriveAdoption\healthy.flag'
 
     # Wait for the client before reading any state: a not-yet-started client looks "signed out"
-    $clientRunning = Wait-ODClient -TimeoutSeconds $ClientWaitSeconds
+    $clientRunning = Start-ODClient -Background -TimeoutSeconds $ClientWaitSeconds -LogSource $LogSource -FallbackLogPath $FallbackLogPath
     $logTarget = @{ LogSource = $LogSource; FallbackLogPath = $FallbackLogPath }
     $userEmail = Get-ODUserEmail -AccountKeyPath $AccountKeyPath @logTarget
     $context = @{ upn = $userEmail; clientRunning = $clientRunning }
