@@ -44,11 +44,20 @@ $ModuleRoot = $ModuleRoot.TrimEnd('\')
 
 # WPF needs a single-threaded apartment; relaunch with -STA and pass the parameters along
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
+    # Forward the trimmed root, not the value as passed
+    if ($PSBoundParameters.ContainsKey('ModuleRoot')) { $PSBoundParameters['ModuleRoot'] = $ModuleRoot }
+
+    # Quote for the Windows command line: backslashes before a quote (or the closing quote) are
+    # doubled and embedded quotes are escaped, so a trailing backslash or a quote can't break the arguments
+    $quote = {
+        param([string] $Value)
+        '"' + ([regex]::Replace($Value, '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"'
+    }
     $forwarded = foreach ($entry in $PSBoundParameters.GetEnumerator()) {
         '-{0}' -f $entry.Key
-        '"{0}"' -f $entry.Value
+        & $quote ([string]$entry.Value)
     }
-    $arguments = @('-STA', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f $PSCommandPath)) + $forwarded
+    $arguments = @('-STA', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (& $quote $PSCommandPath)) + $forwarded
     Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -ArgumentList $arguments
     return
 }
@@ -93,22 +102,9 @@ function Invoke-NagPrompt {
         [int] $TimeoutMinutes = 30
     )
 
-    $profiles = @{
-        FirstLogin = @{
-            Title   = 'Sign in to OneDrive'
-            Message = 'Your files are moving to OneDrive. Please sign in now so your Desktop and Documents back up automatically. It takes about 20 seconds with your CAC.'
-        }
-        Reauth     = @{
-            Title   = 'Sign back in to OneDrive'
-            Message = 'Your OneDrive session has expired and your files have stopped backing up. Please sign in again with your CAC to resume syncing.'
-        }
-    }
-    $selected = $profiles[$Kind]
-
     Write-ODNagEvent -Logger $Logger -Event "${Kind}Shown"
 
-    $action = Show-ODNagDialog -XamlPath $XamlPath -UserEmail $UserEmail `
-        -Title $selected.Title -Message $selected.Message -TimeoutMinutes $TimeoutMinutes
+    $action = Show-ODNagPrompt -Kind $Kind -XamlPath $XamlPath -UserEmail $UserEmail -TimeoutMinutes $TimeoutMinutes
 
     # Re-check before acting: the user may have signed in through OneDrive's own window while ours was open
     $recheck = if ($Kind -eq 'FirstLogin') {

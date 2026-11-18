@@ -30,7 +30,7 @@ They mock `Invoke-ODSyncUtil`, so they need no OneDrive or `ODSyncUtil.exe`.
 | `Source/Private/` | Helpers the module uses but does not export, such as `Invoke-ODSyncUtil`. |
 | `Source/OneDriveNag.psd1` | Module manifest. The build stamps the exported function list into the output copy. |
 | `Source/Invoke-OneDriveNag.ps1` | Entry point the scheduled task runs. Checks OneDrive state, shows the prompt, and logs events. |
-| `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. |
+| `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. It holds no title or message text; each prompt kind's text is defined once in the module (`Get-ODPromptProfile`) and passed to `Show-ODNagDialog` by `Show-ODNagPrompt`. |
 | `Source/Register-OneDriveNagSource.ps1` | Optional. Registers the event log source on one machine. The GPO below does the same job. |
 
 The build copies the script, XAML and registration script next to the module, so the output folder holds everything except `ODSyncUtil.exe`. That binary reads per-user sync status; build it and add it to the deployed folder yourself (see [Things to check in a DoD build](#things-to-check-in-a-dod-build)).
@@ -49,6 +49,8 @@ The build copies the script, XAML and registration script next to the module, so
 5. When the prompt closes, the state is checked again and `Get-ODPromptResult` decides what follows. A re-auth prompt is acted on only if the state is still NeedsReauth or NotSignedIn, and a first-login prompt only if no account is configured yet. If the user signed in through OneDrive's own window while the prompt was open (any other result), the button they clicked is ignored, event 1014 is logged with the action and sync state, and nothing is launched.
 6. Otherwise, if the user clicked **Sign in**, OneDrive is started. For re-auth it is restarted first, so it re-checks its token. Later, timed out and dismissed launch nothing.
 7. An unanswered prompt closes itself after 30 minutes and is logged as timed out.
+
+WPF needs a single-threaded apartment, so a script started without `-STA` relaunches itself with it. The relaunch forwards the parameters with the module root's trailing backslash removed, and quotes each value so a path ending in a backslash or containing a quote reaches the new process intact.
 
 The prompt opens in front of other windows but doesn't stay on top. If OneDrive's own sign-in window is open too, the user can bring it forward.
 
