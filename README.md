@@ -33,7 +33,7 @@ The build copies the script, XAML and registration script next to the module, so
    - **Healthy:** logged once each time the account recovers; no prompt.
    - **NeedsReauth** or **NotSignedIn:** shows the **re-auth** prompt.
    - **Degraded** (paused, blocked, full, error): logged; no prompt, because signing in won't fix it.
-   - **Unknown** (client not running, or ODSyncUtil unavailable): logged; no prompt.
+   - **Unknown** (client not running, a closed client reporting "Start OneDrive", or ODSyncUtil unavailable): logged; no prompt.
 5. When the prompt closes, the state is checked again. If the user signed in through OneDrive's own window while the prompt was open, the button they clicked is ignored and event 1014 is logged.
 6. Otherwise, if the user clicked **Sign in**, OneDrive is started. For re-auth it is restarted first, so it re-checks its token.
 7. An unanswered prompt closes itself after 30 minutes and is logged as timed out.
