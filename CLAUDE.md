@@ -11,9 +11,14 @@ Build-Module -SourcePath ./Source/build.psd1
 ```
 
 Each function lives in its own file under `Source/Public/`, named after the function. The build
-joins them into `OneDriveNag.psm1` and exports every function in `Public/`. Helpers that should
+joins them into `OneDriveNag.psm1`. A new public function also goes in `FunctionsToExport` in
+`Source/OneDriveNag.psd1`; `Tests/ModuleManifest.Tests.ps1` fails when the two disagree. Helpers that should
 not be exported go in `Source/Private/`. `Invoke-OneDriveNag.ps1`, `OneDrivePrompt.xaml` and
 `Register-OneDriveNagSource.ps1` are copied into the output as they are (`CopyPaths`).
+
+## Test
+
+See the Test section of `README.md`. CI runs the tests, PSScriptAnalyzer and the build on every PR.
 
 ## Conventions
 
