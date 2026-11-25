@@ -39,7 +39,8 @@ function Invoke-ODNagPrompt {
         [string] $ExpectedTenantId = '',
 
         # Minutes before the prompt closes itself; 0 disables the timeout
-        [int] $TimeoutMinutes = 30
+        [Parameter(Mandatory)]
+        [int] $TimeoutMinutes
     )
 
     Write-ODNagEvent -Logger $Logger -Event "${Kind}Shown"

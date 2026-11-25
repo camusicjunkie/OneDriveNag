@@ -26,8 +26,7 @@ They mock `Invoke-ODSyncUtil`, so they need no OneDrive or `ODSyncUtil.exe`.
 
 | Path | Purpose |
 |---|---|
-| `Source/Public/Invoke-ODNagRun.ps1` | Performs one Run. Tested end to end in `Tests/Invoke-ODNagRun.Tests.ps1` with mocks at the private functions and a `TestDrive:` marker path. |
-| `Source/Public/` | The exported functions, one file each: `Invoke-ODNagRun` and `New-ODNagLogger`. The build joins them into `OneDriveNag.psm1`. |
+| `Source/Public/` | The exported functions, one file each: `Invoke-ODNagRun` and `New-ODNagLogger`. The build joins them into `OneDriveNag.psm1`. `Invoke-ODNagRun` performs one Run and is tested end to end in `Tests/Invoke-ODNagRun.Tests.ps1`, with mocks at the private functions and a `TestDrive:` marker path. |
 | `Source/Private/` | Every other function. The module uses them but does not export them, such as `Invoke-ODSyncUtil`. Their unit tests dot-source the files directly. |
 | `Source/OneDriveNag.psd1` | Module manifest. The build stamps the exported function list into the output copy. |
 | `Source/Invoke-OneDriveNag.ps1` | Entry point the scheduled task runs. Relaunches with `-STA`, takes the session mutex, imports the module, creates the logger and calls `Invoke-ODNagRun`, which performs the whole Run (state checks, prompt, events, marker). |
@@ -38,7 +37,7 @@ The build copies the script, XAML and registration script next to the module, so
 
 ## Changes in 0.2.0
 
-The module now exports only `Invoke-ODNagRun` and `New-ODNagLogger`. These functions are no longer exported (they are private to the module): `Get-ODAccount`, `Resolve-ODAccountEmail`, `Start-ODClient`, `Get-ODHealthState`, `Write-ODNagEvent`, `Show-ODNagDialog`, `Get-ODNagDecision` and `Get-ODPromptResult`. The entry script is unaffected.
+The module now exports only `Invoke-ODNagRun` and `New-ODNagLogger`. These functions are no longer exported (they are private to the module): `Get-ODAccount`, `Start-ODClient`, `Get-ODHealthState`, `Write-ODNagEvent`, `Show-ODNagDialog`, `Show-ODNagPrompt`, `Get-ODNagDecision` and `Get-ODPromptResult`. The entry script is unaffected.
 
 ## How it works
 
