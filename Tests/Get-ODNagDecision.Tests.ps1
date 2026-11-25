@@ -27,7 +27,7 @@ BeforeDiscovery {
 }
 
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\Source\Public\Get-ODNagDecision.ps1')
+    . (Join-Path $PSScriptRoot '..\Source\Private\Get-ODNagDecision.ps1')
 }
 
 Describe 'Get-ODNagDecision' {

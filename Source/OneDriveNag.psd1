@@ -1,6 +1,6 @@
 @{
     RootModule        = 'OneDriveNag.psm1'
-    ModuleVersion     = '0.1.0'
+    ModuleVersion     = '0.2.0'
     GUID              = '13c5e313-9139-4b91-aad9-0705fbd196b9'
     Author            = 'John Steele'
     Copyright         = '(c) 2026 John Steele. Licensed under the MIT License.'
@@ -8,15 +8,8 @@
     PowerShellVersion = '5.1'
 
     FunctionsToExport = @(
-        'Get-ODAccount'
-        'Start-ODClient'
-        'Get-ODHealthState'
+        'Invoke-ODNagRun'
         'New-ODNagLogger'
-        'Write-ODNagEvent'
-        'Show-ODNagDialog'
-        'Show-ODNagPrompt'
-        'Get-ODNagDecision'
-        'Get-ODPromptResult'
     )
     CmdletsToExport   = @()
     VariablesToExport = @()

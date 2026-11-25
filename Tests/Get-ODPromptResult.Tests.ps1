@@ -1,5 +1,5 @@
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\Source\Public\Get-ODPromptResult.ps1')
+    . (Join-Path $PSScriptRoot '..\Source\Private\Get-ODPromptResult.ps1')
 }
 
 Describe 'Get-ODPromptResult' {

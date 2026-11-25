@@ -2,9 +2,9 @@ BeforeAll {
     $source = Join-Path $PSScriptRoot '..\Source'
     . (Join-Path $source 'Private\Get-ODClientPath.ps1')
     . (Join-Path $source 'Private\Test-ODClientRunning.ps1')
-    . (Join-Path $source 'Public\Write-ODNagEvent.ps1')
+    . (Join-Path $source 'Private\Write-ODNagEvent.ps1')
     . (Join-Path $source 'Public\New-ODNagLogger.ps1')
-    . (Join-Path $source 'Public\Start-ODClient.ps1')
+    . (Join-Path $source 'Private\Start-ODClient.ps1')
 
     $script:log = @{ Logger = (New-ODNagLogger -LogSource 'T' -FallbackLogPath 'x.log') }
 }
