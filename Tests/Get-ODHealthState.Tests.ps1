@@ -1,7 +1,7 @@
 BeforeAll {
     $source = Join-Path $PSScriptRoot '..\Source'
     . (Join-Path $source 'Private\Invoke-ODSyncUtil.ps1')
-    . (Join-Path $source 'Public\Get-ODHealthState.ps1')
+    . (Join-Path $source 'Private\Get-ODHealthState.ps1')
 
     function New-Root($Name, $Num, $Text, $Label) {
         [pscustomobject]@{ ServiceName = $Name; CurrentState = $Num; CurrentStateString = $Text; Label = $Label }

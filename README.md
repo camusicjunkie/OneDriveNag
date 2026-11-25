@@ -27,14 +27,18 @@ They mock `Invoke-ODSyncUtil`, so they need no OneDrive or `ODSyncUtil.exe`.
 | Path | Purpose |
 |---|---|
 | `Source/Public/Invoke-ODNagRun.ps1` | Performs one Run. Tested end to end in `Tests/Invoke-ODNagRun.Tests.ps1` with mocks at the private functions and a `TestDrive:` marker path. |
-| `Source/Public/` | One file per module function. The build joins them into `OneDriveNag.psm1` and exports them all. |
-| `Source/Private/` | Helpers the module uses but does not export, such as `Invoke-ODSyncUtil`. |
+| `Source/Public/` | The exported functions, one file each: `Invoke-ODNagRun` and `New-ODNagLogger`. The build joins them into `OneDriveNag.psm1`. |
+| `Source/Private/` | Every other function. The module uses them but does not export them, such as `Invoke-ODSyncUtil`. Their unit tests dot-source the files directly. |
 | `Source/OneDriveNag.psd1` | Module manifest. The build stamps the exported function list into the output copy. |
 | `Source/Invoke-OneDriveNag.ps1` | Entry point the scheduled task runs. Relaunches with `-STA`, takes the session mutex, imports the module, creates the logger and calls `Invoke-ODNagRun`, which performs the whole Run (state checks, prompt, events, marker). |
 | `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. It holds no title or message text; each prompt kind's text is defined once in the module (`Get-ODPromptProfile`) and passed to `Show-ODNagDialog` by the private `Invoke-ODNagPrompt`. `Invoke-ODNagPrompt` handles a prompt of either kind (`FirstLogin` or `Reauth`) end to end: it shows the dialog, re-checks the state, logs the events and starts or restarts the client. |
 | `Source/Register-OneDriveNagSource.ps1` | Optional. Registers the event log source on one machine. The GPO below does the same job. |
 
 The build copies the script, XAML and registration script next to the module, so the output folder holds everything except `ODSyncUtil.exe`. That binary reads per-user sync status; build it and add it to the deployed folder yourself (see [Things to check in a DoD build](#things-to-check-in-a-dod-build)).
+
+## Changes in 0.2.0
+
+The module now exports only `Invoke-ODNagRun` and `New-ODNagLogger`. These functions are no longer exported (they are private to the module): `Get-ODAccount`, `Resolve-ODAccountEmail`, `Start-ODClient`, `Get-ODHealthState`, `Write-ODNagEvent`, `Show-ODNagDialog`, `Get-ODNagDecision` and `Get-ODPromptResult`. The entry script is unaffected.
 
 ## How it works
 

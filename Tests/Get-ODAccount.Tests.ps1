@@ -1,8 +1,8 @@
 BeforeAll {
     $source = Join-Path $PSScriptRoot '..\Source'
     . (Join-Path $source 'Private\Find-ODDirectoryUser.ps1')
-    . (Join-Path $source 'Public\Write-ODNagEvent.ps1')
-    . (Join-Path $source 'Public\Get-ODAccount.ps1')
+    . (Join-Path $source 'Private\Write-ODNagEvent.ps1')
+    . (Join-Path $source 'Private\Get-ODAccount.ps1')
 
     $script:common = @{ AccountKeyPath = 'HKCU:\fake' }
 }
