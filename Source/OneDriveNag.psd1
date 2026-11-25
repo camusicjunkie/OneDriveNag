@@ -9,6 +9,7 @@
 
     FunctionsToExport = @(
         'Get-ODAccount'
+        'Resolve-ODAccountEmail'
         'Start-ODClient'
         'Get-ODHealthState'
         'New-ODNagLogger'
