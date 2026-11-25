@@ -108,8 +108,7 @@ function Invoke-NagPrompt {
 
     # Re-check before acting: the user may have signed in through OneDrive's own window while ours was open
     $recheck = if ($Kind -eq 'FirstLogin') {
-        @{ AccountConfigured = [bool](Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId `
-                -Logger $Logger -SkipDirectoryLookup).Configured }
+        @{ AccountConfigured = [bool](Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId).Configured }
     }
     else {
         @{ HealthState = (Get-ODHealthState -ExePath $SyncUtilPath).State }
@@ -141,8 +140,8 @@ try {
 
     # Wait for the client before reading any state: a not-yet-started client looks "signed out"
     $clientRunning = Start-ODClient -Background -TimeoutSeconds $ClientWaitSeconds -Logger $logger
-    $account = Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId -Logger $logger
-    $userEmail = $account.Email
+    $account = Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId
+    $userEmail = Resolve-ODAccountEmail -RegistryEmail $account.Email -Logger $logger
     $logger.Context['upn'] = $userEmail
     $logger.Context['clientRunning'] = $clientRunning
     $promptArgs = @{
