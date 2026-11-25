@@ -2,7 +2,7 @@ BeforeAll {
     $source = Join-Path $PSScriptRoot '..\Source'
     . (Join-Path $source 'Private\Get-ODNagEventTable.ps1')
     . (Join-Path $source 'Public\New-ODNagLogger.ps1')
-    . (Join-Path $source 'Public\Write-ODNagEvent.ps1')
+    . (Join-Path $source 'Private\Write-ODNagEvent.ps1')
     $script:root = Split-Path $PSScriptRoot -Parent
 }
 

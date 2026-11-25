@@ -1,9 +1,9 @@
 BeforeAll {
     $source = Join-Path $PSScriptRoot '..\Source'
     . (Join-Path $source 'Private\Find-ODDirectoryUser.ps1')
-    . (Join-Path $source 'Public\Write-ODNagEvent.ps1')
+    . (Join-Path $source 'Private\Write-ODNagEvent.ps1')
     . (Join-Path $source 'Public\New-ODNagLogger.ps1')
-    . (Join-Path $source 'Public\Resolve-ODAccountEmail.ps1')
+    . (Join-Path $source 'Private\Resolve-ODAccountEmail.ps1')
 
     $script:origUser = $env:USERNAME
     $script:logger = New-ODNagLogger -LogSource 'src' -FallbackLogPath 'x.log'

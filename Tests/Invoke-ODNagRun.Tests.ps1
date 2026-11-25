@@ -2,9 +2,9 @@ BeforeAll {
     $source = Join-Path $PSScriptRoot '..\Source'
     foreach ($file in 'Private\Get-ODPromptProfile', 'Private\Get-ODClientPath', 'Private\Test-ODClientRunning',
         'Private\Invoke-ODSyncUtil', 'Private\Find-ODDirectoryUser', 'Private\Invoke-ODNagPrompt',
-        'Public\Show-ODNagDialog', 'Public\Get-ODAccount', 'Public\Resolve-ODAccountEmail',
-        'Public\Get-ODHealthState', 'Public\Get-ODNagDecision', 'Public\Get-ODPromptResult',
-        'Public\Start-ODClient', 'Public\Write-ODNagEvent', 'Public\New-ODNagLogger', 'Public\Invoke-ODNagRun') {
+        'Private\Show-ODNagDialog', 'Private\Get-ODAccount', 'Private\Resolve-ODAccountEmail',
+        'Private\Get-ODHealthState', 'Private\Get-ODNagDecision', 'Private\Get-ODPromptResult',
+        'Private\Start-ODClient', 'Private\Write-ODNagEvent', 'Public\New-ODNagLogger', 'Public\Invoke-ODNagRun') {
         . (Join-Path $source "$file.ps1")
     }
 

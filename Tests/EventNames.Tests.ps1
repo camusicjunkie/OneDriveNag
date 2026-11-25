@@ -21,8 +21,8 @@ BeforeDiscovery {
 }
 
 BeforeAll {
-    . (Join-Path $PSScriptRoot '..\Source\Public\Get-ODNagDecision.ps1')
-    . (Join-Path $PSScriptRoot '..\Source\Public\Get-ODPromptResult.ps1')
+    . (Join-Path $PSScriptRoot '..\Source\Private\Get-ODNagDecision.ps1')
+    . (Join-Path $PSScriptRoot '..\Source\Private\Get-ODPromptResult.ps1')
     . (Join-Path $PSScriptRoot '..\Source\Private\Get-ODNagEventTable.ps1')
     $script:Table = Get-ODNagEventTable
 }
