@@ -4,6 +4,9 @@ Prompts a user to sign in to OneDrive, or back in when the token expires, and lo
 
 ## Language
 
+**Run**:
+One invocation of the entry script in a session, from reading the account and client state to the last event logged. At most one run is active per session.
+
 **Prompt kind**:
 Which prompt the user sees: `FirstLogin` or `Reauth`. It selects the prompt text and the event IDs.
 - `FirstLogin`: no OneDrive Business account is configured. Events 1000 (shown), 1001 (acted), 1002 (deferred), 1004 (timed out or dismissed).
