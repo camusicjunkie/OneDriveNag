@@ -30,7 +30,7 @@ They mock `Invoke-ODSyncUtil`, so they need no OneDrive or `ODSyncUtil.exe`.
 | `Source/Private/` | Helpers the module uses but does not export, such as `Invoke-ODSyncUtil`. |
 | `Source/OneDriveNag.psd1` | Module manifest. The build stamps the exported function list into the output copy. |
 | `Source/Invoke-OneDriveNag.ps1` | Entry point the scheduled task runs. Checks OneDrive state, shows the prompt, and logs events. |
-| `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. It holds no title or message text; each prompt kind's text is defined once in the module (`Get-ODPromptProfile`) and passed to `Show-ODNagDialog` by `Show-ODNagPrompt`. `Show-ODNagPrompt` is the public entry point for showing a prompt: give it a kind (`FirstLogin` or `Reauth`) and it returns `SignIn`, `Later`, `TimedOut` or `Dismissed`. |
+| `Source/OneDrivePrompt.xaml` | WPF layout for the prompt window. It holds no title or message text; each prompt kind's text is defined once in the module (`Get-ODPromptProfile`) and passed to `Show-ODNagDialog` by the private `Invoke-ODNagPrompt`. `Invoke-ODNagPrompt` handles a prompt of either kind (`FirstLogin` or `Reauth`) end to end: it shows the dialog, re-checks the state, logs the events and starts or restarts the client. |
 | `Source/Register-OneDriveNagSource.ps1` | Optional. Registers the event log source on one machine. The GPO below does the same job. |
 
 The build copies the script, XAML and registration script next to the module, so the output folder holds everything except `ODSyncUtil.exe`. That binary reads per-user sync status; build it and add it to the deployed folder yourself (see [Things to check in a DoD build](#things-to-check-in-a-dod-build)).
