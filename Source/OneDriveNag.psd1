@@ -8,6 +8,7 @@
     PowerShellVersion = '5.1'
 
     FunctionsToExport = @(
+        'Invoke-ODNagRun'
         'Get-ODAccount'
         'Resolve-ODAccountEmail'
         'Start-ODClient'
