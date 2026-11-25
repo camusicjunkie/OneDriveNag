@@ -63,67 +63,6 @@ if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
 }
 
 
-function Invoke-NagPrompt {
-    <#
-    .SYNOPSIS
-        Shows the first-login or re-auth prompt, acts on the user's choice, and logs each step.
-    #>
-    [CmdletBinding()]
-    param(
-        # Which prompt to show; selects the text and the event IDs
-        [Parameter(Mandatory)]
-        [ValidateSet('FirstLogin', 'Reauth')]
-        [string] $Kind,
-
-        # Path to the prompt XAML
-        [Parameter(Mandatory)]
-        [string] $XamlPath,
-
-        # Address shown in the prompt
-        [Parameter(Mandatory)]
-        [string] $UserEmail,
-
-        # Logger from New-ODNagLogger; its context is added to every event
-        [Parameter(Mandatory)]
-        [pscustomobject] $Logger,
-
-        # Registry key for the OneDrive Business sync account, for the re-check after the prompt
-        [Parameter(Mandatory)]
-        [string] $AccountKeyPath,
-
-        # Full path to ODSyncUtil.exe, for the re-check after the prompt
-        [Parameter(Mandatory)]
-        [string] $SyncUtilPath,
-
-        # Optional Entra tenant GUID for a strict account match
-        [string] $ExpectedTenantId = '',
-
-        # Minutes before the prompt closes itself
-        [int] $TimeoutMinutes = 30
-    )
-
-    Write-ODNagEvent -Logger $Logger -Event "${Kind}Shown"
-
-    $action = Show-ODNagPrompt -Kind $Kind -XamlPath $XamlPath -UserEmail $UserEmail -TimeoutMinutes $TimeoutMinutes
-
-    # Re-check before acting: the user may have signed in through OneDrive's own window while ours was open
-    $recheck = if ($Kind -eq 'FirstLogin') {
-        @{ AccountConfigured = [bool](Get-ODAccount -AccountKeyPath $AccountKeyPath -ExpectedTenantId $ExpectedTenantId).Configured }
-    }
-    else {
-        @{ HealthState = (Get-ODHealthState -ExePath $SyncUtilPath).State }
-    }
-
-    $result = Get-ODPromptResult -Action $action -Kind $Kind @recheck
-    foreach ($e in $result.Events) {
-        Write-ODNagEvent -Logger $Logger -Event $e.Event -Data $e.Data
-    }
-    if ($result.Launch -ne 'None') {
-        $null = Start-ODClient -Restart:($result.Launch -eq 'Restart') -Logger $Logger
-    }
-}
-
-
 # One run per session: a "Local\" mutex is scoped to this session, so repeat triggers can't stack dialogs
 $mutex = [System.Threading.Mutex]::new($false, 'Local\OneDriveNag')
 if (-not $mutex.WaitOne(0)) { return }
@@ -180,7 +119,8 @@ try {
     }
 
     if ($decision.Prompt) {
-        Invoke-NagPrompt -Kind $decision.Prompt -Logger $logger @promptArgs
+        # The prompt module is private, so call it inside the module's scope
+        & (Get-Module -Name OneDriveNag) { param($PromptKind, $PromptLogger, $PromptArgs) Invoke-ODNagPrompt -Kind $PromptKind -Logger $PromptLogger @PromptArgs } $decision.Prompt $logger $promptArgs
     }
 }
 finally {
