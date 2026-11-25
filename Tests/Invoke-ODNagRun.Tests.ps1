@@ -63,6 +63,7 @@ Describe 'Invoke-ODNagRun' {
         @{ Name = 'Healthy, no marker'; Running = $true; State = 'Healthy'; Marker = $false; Want = @('Healthy'); MarkerAfter = 'present' }
         @{ Name = 'Healthy, marker present'; Running = $true; State = 'Healthy'; Marker = $true; Want = @(); MarkerAfter = 'present' }
         @{ Name = 'Degraded, marker present'; Running = $true; State = 'Degraded'; Marker = $true; Want = @('Degraded'); MarkerAfter = 'absent' }
+        @{ Name = 'Unknown, no marker'; Running = $true; State = 'Unknown'; Marker = $false; Want = @('StatusUnknown'); MarkerAfter = 'absent' }
         @{ Name = 'Unknown, marker present'; Running = $true; State = 'Unknown'; Marker = $true; Want = @('StatusUnknown'); MarkerAfter = 'present' }
     ) {
         $script:clientRunning = $Running
@@ -96,6 +97,44 @@ Describe 'Invoke-ODNagRun' {
         @($events.Event) | Should -Be $Want
         @($launches | Where-Object { $_ -ne '/background' }) | Should -Be $Launch
         Should -Invoke Show-ODNagDialog -Times 1 -Exactly
+    }
+
+    It 'logs <Want> and launches <Launch> for NotSignedIn when the user chooses <Action>' -ForEach @(
+        @{ Action = 'SignIn'; Want = @('ReauthShown', 'ReauthActed'); Launch = @('/shutdown', 'start') }
+        @{ Action = 'Later'; Want = @('ReauthShown', 'ReauthDeferred'); Launch = @() }
+        @{ Action = 'TimedOut'; Want = @('ReauthShown', 'ReauthTimedOut'); Launch = @() }
+        @{ Action = 'Dismissed'; Want = @('ReauthShown', 'ReauthDismissed'); Launch = @() }
+    ) {
+        $script:states = @('NotSignedIn')
+        $script:action = $Action
+
+        & $script:run
+
+        @($events.Event) | Should -Be $Want
+        @($launches | Where-Object { $_ -ne '/background' }) | Should -Be $Launch
+    }
+
+    It 'still shows the FirstLogin prompt when no account is configured and the client is not running' {
+        $script:accounts = @($false)
+        $script:clientRunning = $false
+
+        & $script:run
+
+        @($events.Event) | Should -Be @('FirstLoginShown', 'FirstLoginDeferred')
+        Should -Invoke Show-ODNagDialog -Times 1 -Exactly
+    }
+
+    It 'logs EmailLookupFailed once when the directory <Case> and a FirstLogin prompt follows' -ForEach @(
+        @{ Case = 'lookup fails'; Fail = $true }
+        @{ Case = 'finds nothing'; Fail = $false }
+    ) {
+        $script:accounts = @($false)
+        $script:fail = $Fail
+        Mock Find-ODDirectoryUser { if ($script:fail) { throw 'directory down' } else { $null } }
+
+        & $script:run
+
+        @($events.Event) | Should -Be @('EmailLookupFailed', 'FirstLoginShown', 'FirstLoginDeferred')
     }
 
     It 'prompts for <State> and clears the marker' -ForEach @(
